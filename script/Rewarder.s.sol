@@ -132,8 +132,11 @@ contract RewarderScript is Script {
         rewarder.addMarketToWhitelist(address(0x000000000000000000000000000000000000000C));
         rewarder.addMarketToWhitelist(address(0x000000000000000000000000000000000000000d));
 
-        string memory json = vm.readFile("./files/in/rewards0.json");
-        vm.closeFile("./files/in/rewards0.json");
+        string memory fileName = "rewards-example";
+        string memory path = string(abi.encodePacked("./files/in/", fileName, ".json"));
+
+        string memory json = vm.readFile(path);
+        vm.closeFile(path);
 
         uint256 length = abi.decode(vm.parseJson(json, ".length"), (uint256));
 
@@ -204,9 +207,11 @@ contract RewarderScript is Script {
         }
 
         string memory out = convertArrayOfMarketToString(markets);
-        vm.writeJson(out, "./files/out/rewards0.json");
+        string memory f_out = string(abi.encodePacked("./files/out/", fileName, "-out.json"));
 
-        verifyGeneratedJSON("./files/out/rewards0.json");
+        vm.writeJson(out, f_out);
+
+        verifyGeneratedJSON(f_out);
     }
 
     function verifyGeneratedJSON(string memory file) public {
