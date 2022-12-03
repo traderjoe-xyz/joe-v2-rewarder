@@ -47,10 +47,10 @@ contract Rewarder is
     mapping(bytes32 => uint256) private _released;
 
     /**
-     * @dev Allows the contract to be a proxy or not.
+     * @custom:oz-upgrades-unsafe-allow constructor
      */
     constructor() {
-        initialize();
+        _disableInitializers();
     }
 
     function initialize() public initializer {

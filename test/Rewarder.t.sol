@@ -4,13 +4,16 @@ pragma solidity ^0.8.0;
 
 import "forge-std/Test.sol";
 import "murky/Merkle.sol";
+import "openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../src/Rewarder.sol";
 import "./mocks/MockERC20.sol";
 
 contract RewarderTest is Test {
     Merkle public merkle;
-    Rewarder public rewarder;
+
+    Rewarder public implementation;
+    Rewarder public rewarder; // proxy
 
     address public constant MARKET_A = address(bytes20(keccak256("MARKET_A")));
     address public constant MARKET_B = address(bytes20(keccak256("MARKET_B")));
@@ -19,7 +22,8 @@ contract RewarderTest is Test {
     MockERC20 public immutable TOKEN_A = new MockERC20("TOKEN A", "TKA");
     MockERC20 public immutable TOKEN_B = new MockERC20("TOKEN B", "TKB");
 
-    address public immutable OWNER = address(bytes20(keccak256("OWNER")));
+    address public constant OWNER = address(bytes20(keccak256("OWNER")));
+    address public constant PROXY_OWNER = address(bytes20(keccak256("PROXY_OWNER")));
     address public constant ALICE = address(bytes20(keccak256("ALICE")));
     address public constant BOB = address(bytes20(keccak256("BOB")));
     address public constant CAROL = address(bytes20(keccak256("CAROL")));
@@ -28,7 +32,10 @@ contract RewarderTest is Test {
         vm.startPrank(OWNER);
 
         merkle = new Merkle();
-        rewarder = new Rewarder();
+        implementation = new Rewarder();
+
+        rewarder = Rewarder(payable(address(new TransparentUpgradeableProxy(address(implementation), PROXY_OWNER, ""))));
+        rewarder.initialize();
 
         vm.stopPrank();
     }
@@ -808,6 +815,19 @@ contract RewarderTest is Test {
 
         vm.expectRevert("Ownable: caller is not the owner");
         rewarder.removeMarketFromWhitelist(MARKET_A);
+
+        vm.stopPrank();
+    }
+
+    function testInitializeTwice() public {
+        vm.startPrank(OWNER);
+
+        // Redeploy it orelse coverage will complain
+        rewarder = Rewarder(payable(address(new TransparentUpgradeableProxy(address(implementation), PROXY_OWNER, ""))));
+        rewarder.initialize();
+
+        vm.expectRevert("Initializable: contract is already initialized");
+        rewarder.initialize();
 
         vm.stopPrank();
     }

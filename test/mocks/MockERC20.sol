@@ -5,11 +5,7 @@ pragma solidity ^0.8.10;
 import "openzeppelin-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 
 contract MockERC20 is ERC20Upgradeable {
-    constructor(string memory name, string memory symbol) {
-        initialize(name, symbol);
-    }
-
-    function initialize(string memory name, string memory symbol) public initializer {
+    constructor(string memory name, string memory symbol) initializer {
         __ERC20_init(name, symbol);
     }
 
