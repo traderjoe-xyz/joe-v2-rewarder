@@ -1,6 +1,9 @@
 # Joe V2 Rewarder
 
-<!-- TODO -->
+This repository contains the source code for the Trader Joe Rewarder contract.
+It allows to distribute rewards to users based on their share of the total liquidity provided to the Trader Joe protocol.
+This share is calculated off-chain and then set on-chain using a Merkle tree.
+The rewards can be any ERC20 and native tokens, they are distributed following a vesting schedule and can be claimed by the users using their Merkle proof.
 
 ## Install foundry
 
@@ -45,7 +48,7 @@ To install dependencies, run the following to install dependencies:
 forge install
 ```
 
-___
+---
 
 ## Tests
 
