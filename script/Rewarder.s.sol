@@ -7,6 +7,7 @@ import "murky/Merkle.sol";
 import "openzeppelin-upgradeable/utils/StringsUpgradeable.sol";
 import "openzeppelin-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import "openzeppelin-upgradeable/utils/structs/EnumerableSetUpgradeable.sol";
+import "openzeppelin/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "../src/Rewarder.sol";
 
@@ -96,7 +97,7 @@ contract RewarderScript is Script {
         address user;
     }
 
-    IRewarder public rewarder;
+    Rewarder public rewarder;
 
     Market[] public markets;
     EnumerableSetUpgradeable.Bytes32Set private _set;
@@ -108,7 +109,10 @@ contract RewarderScript is Script {
         // } else if (block.chainid == 43_113) {
         //     rewarder = IRewarder(address(0x0000000000000000000000000000000000000000));
         // } else {
-        //     rewarder = IRewarder(new Rewarder());
+        //     Rewarder implementation = new Rewarder();
+
+        //     rewarder = Rewarder(payable(address(new TransparentUpgradeableProxy(address(implementation), address(1), ""))));
+        //     rewarder.initialize();
 
         //     // Add dummy markets
         //     rewarder.addMarketToWhitelist(address(0x000000000000000000000000000000000000000A));
@@ -117,7 +121,10 @@ contract RewarderScript is Script {
         //     rewarder.addMarketToWhitelist(address(0x000000000000000000000000000000000000000d));
         // }
 
-        rewarder = IRewarder(new Rewarder());
+        Rewarder implementation = new Rewarder();
+
+        rewarder = Rewarder(payable(address(new TransparentUpgradeableProxy(address(implementation), address(1), ""))));
+        rewarder.initialize();
 
         // Add dummy markets
         rewarder.addMarketToWhitelist(address(0x000000000000000000000000000000000000000A));
