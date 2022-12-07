@@ -39,12 +39,15 @@ contract Rewarder is
 
     bytes32 public constant override PAUSER_ROLE = keccak256("PAUSER_ROLE");
     bytes32 public constant override UNPAUSER_ROLE = keccak256("UNPAUSER_ROLE");
-    bytes32 public constant override CLAIMER_ROLE = keccak256("CLAIMER_ROLE");
+    bytes32 public constant override CLAWBACK_ROLE = keccak256("CLAWBACK_ROLE");
 
     EnumerableSetUpgradeable.AddressSet private _whitelistedMarkets;
     mapping(address => MerkleTreePeriod[]) private _merkleTrees;
 
     mapping(bytes32 => uint256) private _released;
+
+    uint256 private _clawbackDelay;
+    address private _clawbackRecipient;
 
     /**
      * @custom:oz-upgrades-unsafe-allow constructor
@@ -53,10 +56,17 @@ contract Rewarder is
         _disableInitializers();
     }
 
-    function initialize() public initializer {
+    /**
+     * @notice Initializes the contract.
+     * @param clawbackDelay The delay in seconds before the admin can clawback the unclaimed rewards.
+     */
+    function initialize(uint256 clawbackDelay) public initializer {
         __SafeAccessControl_init();
         __Pausable_init();
         __ReentrancyGuard_init();
+
+        _setClawbackDelay(clawbackDelay);
+        _setClawbackRecipient(msg.sender);
     }
 
     receive() external payable {}
@@ -185,32 +195,49 @@ contract Rewarder is
     }
 
     /**
-     * @notice Returns the releasable amount for each (marketData, users, amounts, merkleProofs) tuple.
+     * @notice Returns the releasable amount for each Merkle entry in the given list.
      * @dev Does not check if each tuple is unique.
-     * @param marketData The list of market data to check, consisting of market, epoch, token.
-     * @param users The list of users to check.
-     * @param amounts The list of amounts to check.
-     * @param merkleProofs The list of merkle proofs to check.
-     * @return releasable The releasable amount for each (marketData, users, amounts, merkleProofs) tuple.
+     * @param merkleEntries The list of Merkle entries.
+     * @return releasableAmounts The releasable amount for each entry.
      */
-    function getBatchReleasableAmounts(
-        MarketData[] calldata marketData,
-        address[] calldata users,
-        uint256[] calldata amounts,
-        bytes32[][] calldata merkleProofs
-    ) external view override returns (uint256[] memory releasable) {
-        if (
-            marketData.length == 0 || marketData.length != users.length || marketData.length != amounts.length
-                || marketData.length != merkleProofs.length
-        ) revert Rewarder__InvalidLength();
+    function getBatchReleasableAmounts(MerkleEntry[] calldata merkleEntries)
+        external
+        view
+        override
+        returns (uint256[] memory releasableAmounts)
+    {
+        releasableAmounts = new uint256[](merkleEntries.length);
 
-        releasable = new uint256[](marketData.length);
-
-        for (uint256 i = 0; i < marketData.length; i++) {
-            releasable[i] = _getReleasableAmount(
-                marketData[i].market, marketData[i].epoch, marketData[i].token, users[i], amounts[i], merkleProofs[i]
+        for (uint256 i; i < merkleEntries.length;) {
+            releasableAmounts[i] = _getReleasableAmount(
+                merkleEntries[i].market,
+                merkleEntries[i].epoch,
+                merkleEntries[i].token,
+                merkleEntries[i].user,
+                merkleEntries[i].amount,
+                merkleEntries[i].merkleProof
             );
+
+            unchecked {
+                ++i;
+            }
         }
+    }
+
+    /**
+     * @notice Returns the clawback delay.
+     * @return clawbackDelay The clawback delay.
+     */
+    function getClawbackDelay() external view override returns (uint256 clawbackDelay) {
+        return _clawbackDelay;
+    }
+
+    /**
+     * @notice Returns the clawback recipient.
+     * @return clawbackRecipient The clawback recipient.
+     */
+    function getClawbackRecipient() external view override returns (address clawbackRecipient) {
+        return _clawbackRecipient;
     }
 
     /**
@@ -228,53 +255,56 @@ contract Rewarder is
         uint256 amount,
         bytes32[] calldata merkleProof
     ) external override nonReentrant whenNotPaused {
-        _claim(market, epoch, token, msg.sender, amount, merkleProof);
+        _claimForSelf(market, epoch, token, amount, merkleProof);
     }
 
     /**
-     * @notice Claims the vested reward for each (marketData, amounts, merkleProofs) tuple.
-     * @dev Does not check if each tuple is unique.
-     * @param marketData The list of market data to claim, consisting of market, epoch, token.
-     * @param amounts The list of amounts to claim.
-     * @param merkleProofs The list of merkle proofs to claim.
+     * @notice Claims the vested reward for each Merkle entry in the given list.
+     * @dev Does not check if each entry is unique.
+     * @param merkleEntries The list of merkle entries.
      */
-    function batchClaim(MarketData[] calldata marketData, uint256[] calldata amounts, bytes32[][] calldata merkleProofs)
-        external
-        override
-        nonReentrant
-        whenNotPaused
-    {
-        if (marketData.length == 0 || marketData.length != amounts.length || marketData.length != merkleProofs.length) {
-            revert Rewarder__InvalidLength();
-        }
+    function batchClaim(MerkleEntry[] calldata merkleEntries) external override nonReentrant whenNotPaused {
+        if (merkleEntries.length == 0) revert Rewarder__EmptyMerkleEntries();
 
-        for (uint256 i = 0; i < marketData.length; i++) {
-            _claim(
-                marketData[i].market, marketData[i].epoch, marketData[i].token, msg.sender, amounts[i], merkleProofs[i]
+        for (uint256 i; i < merkleEntries.length;) {
+            if (merkleEntries[i].user != msg.sender) revert Rewarder__OnlyClaimForSelf();
+
+            _claimForSelf(
+                merkleEntries[i].market,
+                merkleEntries[i].epoch,
+                merkleEntries[i].token,
+                merkleEntries[i].amount,
+                merkleEntries[i].merkleProof
             );
+
+            unchecked {
+                ++i;
+            }
         }
     }
 
     /**
-     * @notice Claims the vested reward for the given market, epoch, token, user, amount, and merkle proof.
-     * This functions allows to claim on behalf of an user, but still sending the tokens to the user.
-     * @dev Only callable by the owner or by anyone having the CLAIMER_ROLE.
-     * @param market The market to claim.
-     * @param epoch The epoch to claim.
-     * @param token The token to claim.
-     * @param user The user to claim.
-     * @param amount The amount to claim.
-     * @param merkleProof The merkle proof to claim.
+     * @notice Clawbacks the unclaimed reward for the given market, epoch, token, user, amount, and proof.
+     * @dev Only callable by the owner or by anyone having the CLAWBACK_ROLE and after the clawback delay
+     * once the epoch has ended.
+     * @param market The market to clawback.
+     * @param epoch The epoch to clawback.
+     * @param token The token to clawback.
+     * @param user The user to clawback.
+     * @param amount The amount to clawback.
+     * @param merkleProof The merkle proof to clawback.
      */
-    function claimFor(
+    function clawback(
         address market,
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
         uint256 amount,
         bytes32[] calldata merkleProof
-    ) external override nonReentrant whenNotPaused onlyOwnerOrRole(CLAIMER_ROLE) {
-        _claim(market, epoch, token, user, amount, merkleProof);
+    ) external override nonReentrant whenNotPaused onlyOwnerOrRole(CLAWBACK_ROLE) {
+        MerkleTreePeriod memory mtp = _merkleTrees[market][epoch];
+
+        _clawback(market, epoch, token, user, amount, _clawbackRecipient, _clawbackDelay, merkleProof, mtp);
     }
 
     /**
@@ -364,6 +394,24 @@ contract Rewarder is
         if (!_whitelistedMarkets.remove(market)) revert Rewarder__MarketNotWhitelisted();
 
         emit MarketRemovedFromUnwhitelisted(market);
+    }
+
+    /**
+     * @notice Sets the clawback delay.
+     * @dev Only callable by the owner.
+     * @param newClawbackDelay The new clawback delay.
+     */
+    function setClawbackDelay(uint256 newClawbackDelay) external override onlyOwner {
+        _setClawbackDelay(newClawbackDelay);
+    }
+
+    /**
+     * @notice Sets the recipient of the clawbacked rewards.
+     * @dev Only callable by the owner.
+     * @param newRecipient The new recipient of the clawbacked rewards.
+     */
+    function setClawbackRecipient(address newRecipient) external override onlyOwner {
+        _setClawbackRecipient(newRecipient);
     }
 
     /**
@@ -473,6 +521,19 @@ contract Rewarder is
         return keccak256(abi.encodePacked(market, epoch, token, user));
     }
 
+    function _claimForSelf(
+        address market,
+        uint256 epoch,
+        IERC20Upgradeable token,
+        uint256 amount,
+        bytes32[] calldata merkleProof
+    ) internal {
+        (uint256 amountToRelease, uint256 unreleased) =
+            _claim(market, epoch, token, msg.sender, amount, msg.sender, merkleProof);
+
+        emit RewardClaimed(msg.sender, market, token, epoch, amountToRelease, unreleased);
+    }
+
     /**
      * @dev Claims the vested amount for the given market, epoch, token, user, amount and merkle proof.
      * @param market The market to claim.
@@ -488,8 +549,9 @@ contract Rewarder is
         IERC20Upgradeable token,
         address user,
         uint256 amount,
+        address recipient,
         bytes32[] calldata merkleProof
-    ) internal {
+    ) internal returns (uint256 amountToRelease, uint256 unreleased) {
         MerkleTreePeriod memory mtp = _merkleTrees[market][epoch];
 
         if (mtp.root == bytes32(0)) revert Rewarder__EpochCanceled();
@@ -501,15 +563,66 @@ contract Rewarder is
         bytes32 id = _getReleasedId(market, epoch, token, user);
 
         uint256 released = _released[id];
-        uint256 amountToRelease = _vestingSchedule(mtp.start, mtp.duration, amount) - released;
+        amountToRelease = _vestingSchedule(mtp.start, mtp.duration, amount) - released;
 
         if (amountToRelease > 0) {
             uint256 totalReleased = released + amountToRelease;
+
             _released[id] = totalReleased;
+            unreleased = amount - totalReleased;
 
-            _transferNativeOrERC20(token, user, amountToRelease);
-
-            emit RewardClaimed(user, market, token, epoch, amountToRelease, amount - totalReleased);
+            _transferNativeOrERC20(token, recipient, amountToRelease);
         }
+    }
+
+    /**
+     * @dev Sets the clawback delay.
+     * @param newClawbackDelay The new clawback delay.
+     */
+    function _setClawbackDelay(uint256 newClawbackDelay) internal {
+        if (newClawbackDelay < 1 days) revert Rewarder__ClawbackDelayTooLow();
+
+        _clawbackDelay = newClawbackDelay;
+
+        emit ClawbackDelayUpdated(newClawbackDelay);
+    }
+
+    /**
+     * @dev Sets the clawback recipient.
+     * @param newClawbackRecipient The new clawback recipient.
+     */
+    function _setClawbackRecipient(address newClawbackRecipient) internal {
+        if (newClawbackRecipient == address(0)) revert Rewarder__ZeroAddress();
+
+        _clawbackRecipient = newClawbackRecipient;
+
+        emit ClawbackRecipientUpdated(newClawbackRecipient);
+    }
+
+    /**
+     * @dev Clawbacks the vested amount for the given market, epoch, token, user, amount and merkle proof.
+     * @param market The market to clawback.
+     * @param epoch The epoch to clawback.
+     * @param token The token to clawback.
+     * @param user The user to clawback.
+     * @param amount The amount to clawback.
+     * @param merkleProof The merkle proof to clawback.
+     */
+    function _clawback(
+        address market,
+        uint256 epoch,
+        IERC20Upgradeable token,
+        address user,
+        uint256 amount,
+        address recipient,
+        uint256 clawbackDelay,
+        bytes32[] calldata merkleProof,
+        MerkleTreePeriod memory mtp
+    ) internal {
+        if (block.timestamp < mtp.start + mtp.duration + clawbackDelay) revert Rewarder__ClawbackDelayNotPassed();
+
+        (uint256 clawedBackAmount,) = _claim(market, epoch, token, user, amount, recipient, merkleProof);
+
+        emit RewardClawedBack(user, market, token, epoch, clawedBackAmount, recipient, msg.sender);
     }
 }
