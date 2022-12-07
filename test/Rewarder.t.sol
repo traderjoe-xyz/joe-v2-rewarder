@@ -35,7 +35,7 @@ contract RewarderTest is Test {
         implementation = new Rewarder();
 
         rewarder = Rewarder(payable(address(new TransparentUpgradeableProxy(address(implementation), PROXY_OWNER, ""))));
-        rewarder.initialize();
+        rewarder.initialize(1 days);
 
         vm.stopPrank();
     }
@@ -414,7 +414,7 @@ contract RewarderTest is Test {
         assertEq(rewarder.getReleased(MARKET_A, epoch, IERC20Upgradeable(address(0)), BOB), 200);
     }
 
-    function testClaimFor() public {
+    function testClawback() public {
         uint256 epoch = 0;
         uint256 start = 100;
         uint256 duration = 50;
@@ -425,52 +425,88 @@ contract RewarderTest is Test {
 
         bytes32 root = merkle.getRoot(leaves);
 
-        TOKEN_A.mint(address(rewarder), 1000);
-        TOKEN_B.mint(address(rewarder), 2000);
+        TOKEN_A.mint(address(rewarder), 100);
+        TOKEN_B.mint(address(rewarder), 200);
 
         vm.startPrank(OWNER);
-        rewarder.addMarketToWhitelist(MARKET_A);
-        rewarder.setNewEpoch(MARKET_A, epoch, start, duration, root);
+        rewarder.grantRole(rewarder.CLAWBACK_ROLE(), CAROL);
 
-        rewarder.grantRole(rewarder.CLAIMER_ROLE(), CAROL);
+        rewarder.addMarketToWhitelist(MARKET_A);
+
+        rewarder.setNewEpoch(MARKET_A, epoch, start, duration, root);
         vm.stopPrank();
 
         bytes32[] memory proof0 = merkle.getProof(leaves, 0);
         bytes32[] memory proof1 = merkle.getProof(leaves, 1);
 
-        vm.warp(start + duration);
-
-        vm.prank(CAROL);
-        rewarder.claimFor(MARKET_A, epoch, IERC20Upgradeable(TOKEN_A), ALICE, 100, proof0);
-        assertEq(IERC20Upgradeable(TOKEN_A).balanceOf(ALICE), 100);
-        assertEq(rewarder.getReleased(MARKET_A, epoch, IERC20Upgradeable(TOKEN_A), ALICE), 100);
-
-        vm.prank(CAROL);
-        rewarder.claimFor(MARKET_A, epoch, IERC20Upgradeable(TOKEN_B), BOB, 200, proof1);
-        assertEq(IERC20Upgradeable(TOKEN_B).balanceOf(BOB), 200);
-        assertEq(rewarder.getReleased(MARKET_A, epoch, IERC20Upgradeable(TOKEN_B), BOB), 200);
-
-        vm.warp(start + duration + 1);
+        vm.warp(start + duration + rewarder.getClawbackDelay());
 
         vm.prank(ALICE);
-        rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(TOKEN_A), 100, proof0);
+        rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_A)), 100, proof0);
+
+        assertEq(TOKEN_A.balanceOf(ALICE), 100);
+
+        vm.prank(CAROL);
+        rewarder.clawback(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_B)), BOB, 200, proof1);
+
+        assertEq(TOKEN_B.balanceOf(BOB), 0);
+        assertEq(TOKEN_B.balanceOf(rewarder.getClawbackRecipient()), 200);
+
+        assertEq(rewarder.getReleased(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_B)), BOB), 200);
+        assertEq(
+            rewarder.getReleasableAmount(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_B)), BOB, 200, proof1), 0
+        );
 
         vm.prank(BOB);
-        rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(TOKEN_B), 200, proof1);
+        rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_B)), 200, proof1);
 
-        vm.warp(start + duration + 2);
+        assertEq(TOKEN_B.balanceOf(BOB), 0);
+    }
+
+    function testClawbackNative() public {
+        uint256 epoch = 0;
+        uint256 start = 100;
+        uint256 duration = 50;
+
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = getLeaf(MARKET_A, epoch, start, duration, IERC20Upgradeable(address(0)), ALICE, 100);
+        leaves[1] = getLeaf(MARKET_A, epoch, start, duration, IERC20Upgradeable(address(0)), BOB, 200);
+
+        bytes32 root = merkle.getRoot(leaves);
+
+        vm.deal(address(rewarder), 300);
+
+        vm.startPrank(OWNER);
+        rewarder.grantRole(rewarder.CLAWBACK_ROLE(), CAROL);
+
+        rewarder.addMarketToWhitelist(MARKET_A);
+
+        rewarder.setNewEpoch(MARKET_A, epoch, start, duration, root);
+        vm.stopPrank();
+
+        bytes32[] memory proof0 = merkle.getProof(leaves, 0);
+        bytes32[] memory proof1 = merkle.getProof(leaves, 1);
+
+        vm.warp(start + duration + rewarder.getClawbackDelay());
+
+        vm.prank(ALICE);
+        rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(address(0)), 100, proof0);
+
+        assertEq(address(ALICE).balance, 100);
 
         vm.prank(CAROL);
-        rewarder.claimFor(MARKET_A, epoch, IERC20Upgradeable(TOKEN_A), ALICE, 100, proof0);
+        rewarder.clawback(MARKET_A, epoch, IERC20Upgradeable(address(0)), BOB, 200, proof1);
 
-        assertEq(IERC20Upgradeable(TOKEN_A).balanceOf(ALICE), 100);
-        assertEq(rewarder.getReleased(MARKET_A, epoch, IERC20Upgradeable(TOKEN_A), ALICE), 100);
+        assertEq(address(BOB).balance, 0);
+        assertEq(address(rewarder.getClawbackRecipient()).balance, 200);
 
-        vm.prank(CAROL);
-        rewarder.claimFor(MARKET_A, epoch, IERC20Upgradeable(TOKEN_B), BOB, 200, proof1);
+        assertEq(rewarder.getReleased(MARKET_A, epoch, IERC20Upgradeable(address(0)), BOB), 200);
+        assertEq(rewarder.getReleasableAmount(MARKET_A, epoch, IERC20Upgradeable(address(0)), BOB, 200, proof1), 0);
 
-        assertEq(IERC20Upgradeable(TOKEN_B).balanceOf(BOB), 200);
-        assertEq(rewarder.getReleased(MARKET_A, epoch, IERC20Upgradeable(TOKEN_B), BOB), 200);
+        vm.prank(BOB);
+        rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(address(0)), 200, proof1);
+
+        assertEq(address(BOB).balance, 0);
     }
 
     function testBatchFunctions() public {
@@ -493,35 +529,20 @@ contract RewarderTest is Test {
         rewarder.setNewEpoch(MARKET_A, epoch, start, duration, root);
         vm.stopPrank();
 
-        IRewarder.MarketData[] memory marketData = new IRewarder.MarketData[](2);
+        IRewarder.MerkleEntry[] memory merkleEntries = new IRewarder.MerkleEntry[](2);
 
-        marketData[0] = IRewarder.MarketData(MARKET_A, epoch, TOKEN_A);
-        marketData[1] = IRewarder.MarketData(MARKET_A, epoch, TOKEN_B);
-
-        address[] memory accounts = new address[](2);
-
-        accounts[0] = ALICE;
-        accounts[1] = ALICE;
-
-        uint256[] memory amounts = new uint256[](2);
-
-        amounts[0] = 100;
-        amounts[1] = 200;
-
-        bytes32[][] memory proofs = new bytes32[][](2);
-
-        proofs[0] = merkle.getProof(leaves, 0);
-        proofs[1] = merkle.getProof(leaves, 1);
+        merkleEntries[0] = IRewarder.MerkleEntry(MARKET_A, epoch, TOKEN_A, ALICE, 100, merkle.getProof(leaves, 0));
+        merkleEntries[1] = IRewarder.MerkleEntry(MARKET_A, epoch, TOKEN_B, ALICE, 200, merkle.getProof(leaves, 1));
 
         vm.warp(start + 1);
 
-        uint256[] memory releasable = rewarder.getBatchReleasableAmounts(marketData, accounts, amounts, proofs);
+        uint256[] memory releasable = rewarder.getBatchReleasableAmounts(merkleEntries);
 
         assertEq(releasable[0], 100 * (block.timestamp - start) / duration);
         assertEq(releasable[1], 200 * (block.timestamp - start) / duration);
 
         vm.prank(ALICE);
-        rewarder.batchClaim(marketData, amounts, proofs);
+        rewarder.batchClaim(merkleEntries);
 
         assertEq(IERC20Upgradeable(TOKEN_A).balanceOf(ALICE), 100 * (block.timestamp - start) / duration);
         assertEq(IERC20Upgradeable(TOKEN_B).balanceOf(ALICE), 200 * (block.timestamp - start) / duration);
@@ -537,13 +558,13 @@ contract RewarderTest is Test {
 
         vm.warp(start + duration);
 
-        releasable = rewarder.getBatchReleasableAmounts(marketData, accounts, amounts, proofs);
+        releasable = rewarder.getBatchReleasableAmounts(merkleEntries);
 
         assertEq(releasable[0], 98);
         assertEq(releasable[1], 196);
 
         vm.prank(ALICE);
-        rewarder.batchClaim(marketData, amounts, proofs);
+        rewarder.batchClaim(merkleEntries);
 
         assertEq(IERC20Upgradeable(TOKEN_A).balanceOf(ALICE), 100);
         assertEq(IERC20Upgradeable(TOKEN_B).balanceOf(ALICE), 200);
@@ -553,13 +574,13 @@ contract RewarderTest is Test {
 
         vm.warp(start + duration + 1);
 
-        releasable = rewarder.getBatchReleasableAmounts(marketData, accounts, amounts, proofs);
+        releasable = rewarder.getBatchReleasableAmounts(merkleEntries);
 
         assertEq(releasable[0], 0);
         assertEq(releasable[1], 0);
 
         vm.prank(ALICE);
-        rewarder.batchClaim(marketData, amounts, proofs);
+        rewarder.batchClaim(merkleEntries);
 
         assertEq(IERC20Upgradeable(TOKEN_A).balanceOf(ALICE), 100);
         assertEq(IERC20Upgradeable(TOKEN_B).balanceOf(ALICE), 200);
@@ -606,10 +627,10 @@ contract RewarderTest is Test {
         rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(TOKEN_A), 100, proofs[0]);
 
         vm.expectRevert("Pausable: paused");
-        rewarder.batchClaim(new IRewarder.MarketData[](0), new uint256[](0), new bytes32[][](0));
+        rewarder.batchClaim(new IRewarder.MerkleEntry[](0));
 
         vm.expectRevert("Pausable: paused");
-        rewarder.claimFor(MARKET_A, epoch, IERC20Upgradeable(TOKEN_A), ALICE, 100, proofs[0]);
+        rewarder.clawback(MARKET_A, epoch, IERC20Upgradeable(TOKEN_A), ALICE, 100, proofs[0]);
 
         vm.prank(OWNER);
         rewarder.unpause();
@@ -624,43 +645,43 @@ contract RewarderTest is Test {
         assertEq(IERC20Upgradeable(TOKEN_A).balanceOf(ALICE), 100);
     }
 
-    function testBatchFunctionsRevertForInvalidLength() public {
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.getBatchReleasableAmounts(
-            new IRewarder.MarketData[](0), new address[](2), new uint256[](2), new bytes32[][](2)
-        );
+    function testSetClawbackDelay(uint256 delay) public {
+        vm.assume(delay > 1 days);
+        vm.prank(OWNER);
+        rewarder.setClawbackDelay(delay);
 
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.getBatchReleasableAmounts(
-            new IRewarder.MarketData[](1), new address[](2), new uint256[](2), new bytes32[][](2)
-        );
+        assertEq(rewarder.getClawbackDelay(), delay);
+    }
 
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.getBatchReleasableAmounts(
-            new IRewarder.MarketData[](2), new address[](1), new uint256[](2), new bytes32[][](2)
-        );
+    function testSetClawbackRecipient(address recipient) public {
+        vm.assume(recipient != address(0));
 
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.getBatchReleasableAmounts(
-            new IRewarder.MarketData[](2), new address[](2), new uint256[](1), new bytes32[][](2)
-        );
+        vm.prank(OWNER);
+        rewarder.setClawbackRecipient(recipient);
 
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.getBatchReleasableAmounts(
-            new IRewarder.MarketData[](2), new address[](2), new uint256[](2), new bytes32[][](1)
-        );
+        assertEq(rewarder.getClawbackRecipient(), recipient);
+    }
 
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.batchClaim(new IRewarder.MarketData[](0), new uint256[](2), new bytes32[][](2));
+    function testBatchClaimRevertForEmptyEntries() public {
+        vm.expectRevert(IRewarder.Rewarder__EmptyMerkleEntries.selector);
+        vm.prank(ALICE);
+        rewarder.batchClaim(new IRewarder.MerkleEntry[](0));
+    }
 
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.batchClaim(new IRewarder.MarketData[](1), new uint256[](2), new bytes32[][](2));
+    function testBatchClaimRevertForClaimSomeoneElse() public {
+        IRewarder.MerkleEntry[] memory merkleEntries = new IRewarder.MerkleEntry[](1);
+        merkleEntries[0] = IRewarder.MerkleEntry({
+            market: MARKET_A,
+            epoch: 0,
+            token: IERC20Upgradeable(address(0)),
+            user: BOB,
+            amount: 0,
+            merkleProof: new bytes32[](0)
+        });
 
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.batchClaim(new IRewarder.MarketData[](2), new uint256[](1), new bytes32[][](2));
-
-        vm.expectRevert(IRewarder.Rewarder__InvalidLength.selector);
-        rewarder.batchClaim(new IRewarder.MarketData[](2), new uint256[](2), new bytes32[][](1));
+        vm.expectRevert(IRewarder.Rewarder__OnlyClaimForSelf.selector);
+        vm.prank(ALICE);
+        rewarder.batchClaim(merkleEntries);
     }
 
     function testClaimRevertForEpochCanceled() public {
@@ -819,15 +840,68 @@ contract RewarderTest is Test {
         vm.stopPrank();
     }
 
+    function testSetClawbackRevertForDelayTooLow(uint256 delay) public {
+        vm.assume(delay < 1 days);
+        vm.expectRevert(IRewarder.Rewarder__ClawbackDelayTooLow.selector);
+        vm.startPrank(OWNER);
+        rewarder.setClawbackDelay(delay);
+        vm.stopPrank();
+    }
+
+    function testSetClawbackRecipientRevertForZeroAddress() public {
+        vm.expectRevert(IRewarder.Rewarder__ZeroAddress.selector);
+        vm.startPrank(OWNER);
+        rewarder.setClawbackRecipient(address(0));
+        vm.stopPrank();
+    }
+
+    function testClawbackRevertForDelayNotPassed(uint256 ts) public {
+        uint256 epoch = 0;
+        uint256 start = 100;
+        uint256 duration = 50;
+
+        vm.assume(ts < start + duration + rewarder.getClawbackDelay());
+
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = getLeaf(MARKET_A, epoch, start, duration, IERC20Upgradeable(TOKEN_A), ALICE, 100);
+        leaves[1] = getLeaf(MARKET_A, epoch, start, duration, IERC20Upgradeable(TOKEN_B), BOB, 200);
+
+        bytes32 root = merkle.getRoot(leaves);
+
+        TOKEN_A.mint(address(rewarder), 100);
+        TOKEN_B.mint(address(rewarder), 200);
+
+        vm.startPrank(OWNER);
+        rewarder.grantRole(rewarder.CLAWBACK_ROLE(), CAROL);
+
+        rewarder.addMarketToWhitelist(MARKET_A);
+
+        rewarder.setNewEpoch(MARKET_A, epoch, start, duration, root);
+        vm.stopPrank();
+
+        bytes32[] memory proof0 = merkle.getProof(leaves, 0);
+        bytes32[] memory proof1 = merkle.getProof(leaves, 1);
+
+        vm.warp(ts);
+
+        vm.expectRevert(IRewarder.Rewarder__ClawbackDelayNotPassed.selector);
+        vm.prank(CAROL);
+        rewarder.clawback(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_A)), ALICE, 100, proof0);
+
+        vm.expectRevert(IRewarder.Rewarder__ClawbackDelayNotPassed.selector);
+        vm.prank(CAROL);
+        rewarder.clawback(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_B)), BOB, 200, proof1);
+    }
+
     function testInitializeTwice() public {
         vm.startPrank(OWNER);
 
         // Redeploy it orelse coverage will complain
         rewarder = Rewarder(payable(address(new TransparentUpgradeableProxy(address(implementation), PROXY_OWNER, ""))));
-        rewarder.initialize();
+        rewarder.initialize(1 days);
 
         vm.expectRevert("Initializable: contract is already initialized");
-        rewarder.initialize();
+        rewarder.initialize(1 days);
 
         vm.stopPrank();
     }

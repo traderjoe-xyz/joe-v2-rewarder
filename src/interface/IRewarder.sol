@@ -18,7 +18,11 @@ interface IRewarder {
     error Rewarder__MarketNotWhitelisted();
     error Rewarder__MarketAlreadyWhitelisted();
     error Rewarder__NativeTransferFailed();
-    error Rewarder__InvalidLength();
+    error Rewarder__OnlyClaimForSelf();
+    error Rewarder__EmptyMerkleEntries();
+    error Rewarder__ClawbackDelayTooLow();
+    error Rewarder__ClawbackDelayNotPassed();
+    error Rewarder__ZeroAddress();
 
     /**
      * @dev Structure to store the Merkle root, the start and the duration of an epoch.
@@ -33,15 +37,21 @@ interface IRewarder {
     }
 
     /**
-     * @dev Structure to store the information of a market. This is used during batch operations.
+     * @dev Structure to store the Merkle tree entry. It contains:
      * - `market` is the address of the market.
      * - `epoch` is the epoch of the market.
      * - `token` is the token address of the market.
+     * - `user` is the user address.
+     * - `amount` is the amount of tokens to be claimed.
+     * - `merkleProof` is the Merkle proof of the claim.
      */
-    struct MarketData {
+    struct MerkleEntry {
         address market;
         uint256 epoch;
         IERC20Upgradeable token;
+        address user;
+        uint256 amount;
+        bytes32[] merkleProof;
     }
 
     event RewardClaimed(
@@ -61,11 +71,25 @@ interface IRewarder {
 
     event MarketRemovedFromUnwhitelisted(address indexed market);
 
+    event ClawbackDelayUpdated(uint256 newClawbackDelay);
+
+    event ClawbackRecipientUpdated(address newClawbackRecipient);
+
+    event RewardClawedBack(
+        address indexed user,
+        address indexed market,
+        IERC20Upgradeable indexed token,
+        uint256 epoch,
+        uint256 clawbackAmount,
+        address recipient,
+        address sender
+    );
+
     function PAUSER_ROLE() external view returns (bytes32);
 
     function UNPAUSER_ROLE() external view returns (bytes32);
 
-    function CLAIMER_ROLE() external view returns (bytes32);
+    function CLAWBACK_ROLE() external view returns (bytes32);
 
     function getNumberOfWhitelistedMarkets() external view returns (uint256 count);
 
@@ -105,12 +129,14 @@ interface IRewarder {
         bytes32[] calldata merkleProof
     ) external view returns (bool isValid);
 
-    function getBatchReleasableAmounts(
-        MarketData[] calldata marketData,
-        address[] calldata users,
-        uint256[] calldata amounts,
-        bytes32[][] calldata merkleProofs
-    ) external view returns (uint256[] memory releasable);
+    function getBatchReleasableAmounts(MerkleEntry[] calldata merkleEntries)
+        external
+        view
+        returns (uint256[] memory releasableAmounts);
+
+    function getClawbackDelay() external view returns (uint256 clawbackDelay);
+
+    function getClawbackRecipient() external view returns (address clawbackRecipient);
 
     function claim(
         address market,
@@ -120,10 +146,9 @@ interface IRewarder {
         bytes32[] calldata merkleProof
     ) external;
 
-    function batchClaim(MarketData[] calldata marketData, uint256[] calldata amounts, bytes32[][] calldata merkleProofs)
-        external;
+    function batchClaim(MerkleEntry[] calldata merkleEntries) external;
 
-    function claimFor(
+    function clawback(
         address market,
         uint256 epoch,
         IERC20Upgradeable token,
@@ -143,4 +168,8 @@ interface IRewarder {
     function addMarketToWhitelist(address market) external;
 
     function removeMarketFromWhitelist(address market) external;
+
+    function setClawbackDelay(uint256 newClawbackDelay) external;
+
+    function setClawbackRecipient(address newClawbackRecipient) external;
 }

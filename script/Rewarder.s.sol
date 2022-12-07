@@ -124,7 +124,7 @@ contract RewarderScript is Script {
         Rewarder implementation = new Rewarder();
 
         rewarder = Rewarder(payable(address(new TransparentUpgradeableProxy(address(implementation), address(1), ""))));
-        rewarder.initialize();
+        rewarder.initialize(1 days);
 
         // Add dummy markets
         rewarder.addMarketToWhitelist(address(0x000000000000000000000000000000000000000A));
