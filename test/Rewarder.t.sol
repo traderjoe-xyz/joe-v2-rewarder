@@ -1059,6 +1059,39 @@ contract RewarderTest is Test {
         assertEq(TOKEN_B.balanceOf(BOB), 200);
     }
 
+    function testClaimRevertForClaimingMoreThanTotalReward() public {
+        uint256 epoch = 0;
+        uint64 start = 100;
+        uint64 duration = 50;
+
+        bytes32[] memory leaves = new bytes32[](2);
+        leaves[0] = getLeaf(MARKET_A, epoch, start, duration, IERC20Upgradeable(TOKEN_A), ALICE, 100);
+        leaves[1] = getLeaf(MARKET_A, epoch, start, duration, IERC20Upgradeable(TOKEN_B), BOB, 200);
+
+        TOKEN_A.mint(address(rewarder), 100);
+        TOKEN_B.mint(address(rewarder), 200);
+
+        bytes32 root = merkle.getRoot(leaves);
+
+        vm.startPrank(OWNER);
+        rewarder.addMarketToWhitelist(MARKET_A);
+
+        rewarder.setNewEpoch(MARKET_A, epoch, start, duration, 299, root);
+        vm.stopPrank();
+
+        bytes32[] memory proof0 = merkle.getProof(leaves, 0);
+        bytes32[] memory proof1 = merkle.getProof(leaves, 1);
+
+        vm.warp(start + duration);
+
+        vm.prank(ALICE);
+        rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_A)), 100, proof0);
+
+        vm.expectRevert();
+        vm.prank(BOB);
+        rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_B)), 200, proof1);
+    }
+
     function getLeaf(
         address market,
         uint256 epoch,
