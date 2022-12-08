@@ -838,9 +838,9 @@ contract RewarderTest is Test {
         uint256 start,
         uint256 duration,
         IERC20Upgradeable token,
-        address account,
+        address user,
         uint256 amount
     ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(market, epoch, start, duration, token, account, amount));
+        return keccak256(abi.encodePacked(market, epoch, start, duration, token, user, amount));
     }
 }
