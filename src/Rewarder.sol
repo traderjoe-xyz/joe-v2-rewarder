@@ -42,12 +42,12 @@ contract Rewarder is
     bytes32 public constant override CLAWBACK_ROLE = keccak256("CLAWBACK_ROLE");
 
     EnumerableSetUpgradeable.AddressSet private _whitelistedMarkets;
-    mapping(address => MerkleTreePeriod[]) private _merkleTrees;
+    mapping(address => EpochParameters[]) private _epochs;
 
-    mapping(bytes32 => uint256) private _released;
+    mapping(bytes32 => uint128) private _released;
 
-    uint256 private _clawbackDelay;
     address private _clawbackRecipient;
+    uint96 private _clawbackDelay;
 
     /**
      * @custom:oz-upgrades-unsafe-allow constructor
@@ -60,7 +60,7 @@ contract Rewarder is
      * @notice Initializes the contract.
      * @param clawbackDelay The delay in seconds before the admin can clawback the unclaimed rewards.
      */
-    function initialize(uint256 clawbackDelay) public initializer {
+    function initialize(uint96 clawbackDelay) public initializer {
         __SafeAccessControl_init();
         __Pausable_init();
         __ReentrancyGuard_init();
@@ -103,34 +103,23 @@ contract Rewarder is
      * @return epochs The number of epochs for the given market.
      */
     function getNumberOfEpochs(address market) external view override returns (uint256 epochs) {
-        return _merkleTrees[market].length;
+        return _epochs[market].length;
     }
 
     /**
-     * @notice Returns the root of the Merkle tree for the given market and epoch.
+     * @notice Returns the epoch parameters for the given market and epoch, containing the start, duration,
+     * total unreleased amount, and root.
      * @param market The market to check.
      * @param epoch The epoch to check.
-     * @return root The root of the Merkle tree for the given market and epoch.
+     * @return params The epoch parameters for the given market and epoch.
      */
-    function getRootAtEpoch(address market, uint256 epoch) external view override returns (bytes32 root) {
-        return _merkleTrees[market][epoch].root;
-    }
-
-    /**
-     * @notice Returns the period of the epoch for the given market and epoch.
-     * @param market The market to check.
-     * @param epoch The epoch to check.
-     * @return start The start of the period.
-     * @return duration The duration of the period.
-     */
-    function getVestingPeriodAtEpoch(address market, uint256 epoch)
+    function getEpochParameters(address market, uint256 epoch)
         external
         view
         override
-        returns (uint256 start, uint256 duration)
+        returns (EpochParameters memory params)
     {
-        MerkleTreePeriod storage mtp = _merkleTrees[market][epoch];
-        return (mtp.start, mtp.duration);
+        return _epochs[market][epoch];
     }
 
     /**
@@ -145,7 +134,7 @@ contract Rewarder is
         external
         view
         override
-        returns (uint256 released)
+        returns (uint128 released)
     {
         return _released[_getReleasedId(market, epoch, token, user)];
     }
@@ -165,9 +154,9 @@ contract Rewarder is
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
-        uint256 amount,
+        uint128 amount,
         bytes32[] calldata merkleProof
-    ) external view override returns (uint256 releasable) {
+    ) external view override returns (uint128 releasable) {
         return _getReleasableAmount(market, epoch, token, user, amount, merkleProof);
     }
 
@@ -186,12 +175,12 @@ contract Rewarder is
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
-        uint256 amount,
+        uint128 amount,
         bytes32[] calldata merkleProof
     ) external view override returns (bool isValid) {
-        MerkleTreePeriod storage mtp = _merkleTrees[market][epoch];
+        EpochParameters storage params = _epochs[market][epoch];
 
-        return _verify(mtp.root, market, epoch, mtp.start, mtp.duration, token, user, amount, merkleProof);
+        return _verify(params.root, market, epoch, params.start, params.duration, token, user, amount, merkleProof);
     }
 
     /**
@@ -204,9 +193,9 @@ contract Rewarder is
         external
         view
         override
-        returns (uint256[] memory releasableAmounts)
+        returns (uint128[] memory releasableAmounts)
     {
-        releasableAmounts = new uint256[](merkleEntries.length);
+        releasableAmounts = new uint128[](merkleEntries.length);
 
         for (uint256 i; i < merkleEntries.length;) {
             releasableAmounts[i] = _getReleasableAmount(
@@ -225,19 +214,12 @@ contract Rewarder is
     }
 
     /**
-     * @notice Returns the clawback delay.
+     * @notice Returns the clawback recipient and delay.
+     * @return clawbackRecipient The clawback recipient.
      * @return clawbackDelay The clawback delay.
      */
-    function getClawbackDelay() external view override returns (uint256 clawbackDelay) {
-        return _clawbackDelay;
-    }
-
-    /**
-     * @notice Returns the clawback recipient.
-     * @return clawbackRecipient The clawback recipient.
-     */
-    function getClawbackRecipient() external view override returns (address clawbackRecipient) {
-        return _clawbackRecipient;
+    function getClawbackParameters() external view override returns (address clawbackRecipient, uint96 clawbackDelay) {
+        return _getClawbackParameters();
     }
 
     /**
@@ -252,7 +234,7 @@ contract Rewarder is
         address market,
         uint256 epoch,
         IERC20Upgradeable token,
-        uint256 amount,
+        uint128 amount,
         bytes32[] calldata merkleProof
     ) external override nonReentrant whenNotPaused {
         _claimForSelf(market, epoch, token, amount, merkleProof);
@@ -299,12 +281,45 @@ contract Rewarder is
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
-        uint256 amount,
+        uint128 amount,
         bytes32[] calldata merkleProof
     ) external override nonReentrant whenNotPaused onlyOwnerOrRole(CLAWBACK_ROLE) {
-        MerkleTreePeriod memory mtp = _merkleTrees[market][epoch];
+        _clawback(market, epoch, token, user, amount, _clawbackRecipient, _clawbackDelay, merkleProof);
+    }
 
-        _clawback(market, epoch, token, user, amount, _clawbackRecipient, _clawbackDelay, merkleProof, mtp);
+    /**
+     * @notice Clawbacks the unclaimed reward for each Merkle entry in the given list.
+     * @dev Only callable by the owner or by anyone having the CLAWBACK_ROLE and after the clawback delay
+     * once the epoch has ended.
+     * @param merkleEntries The list of merkle entries.
+     */
+    function batchClawback(MerkleEntry[] calldata merkleEntries)
+        external
+        override
+        nonReentrant
+        whenNotPaused
+        onlyOwnerOrRole(CLAWBACK_ROLE)
+    {
+        if (merkleEntries.length == 0) revert Rewarder__EmptyMerkleEntries();
+
+        (address clawbackRecipient, uint96 clawbackDelay) = _getClawbackParameters();
+
+        for (uint256 i; i < merkleEntries.length;) {
+            _clawback(
+                merkleEntries[i].market,
+                merkleEntries[i].epoch,
+                merkleEntries[i].token,
+                merkleEntries[i].user,
+                merkleEntries[i].amount,
+                clawbackRecipient,
+                clawbackDelay,
+                merkleEntries[i].merkleProof
+            );
+
+            unchecked {
+                ++i;
+            }
+        }
     }
 
     /**
@@ -330,27 +345,31 @@ contract Rewarder is
      * @param epoch The epoch to set, it used to check if the epoch is valid.
      * @param start The start of the epoch.
      * @param duration The duration of the epoch.
+     * @param totalAmountToRelease The total amount to release for the epoch.
      * @param root The root of the merkle tree.
      */
-    function setNewEpoch(address market, uint256 epoch, uint256 start, uint256 duration, bytes32 root)
-        external
-        override
-        onlyOwner
-    {
+    function setNewEpoch(
+        address market,
+        uint256 epoch,
+        uint64 start,
+        uint64 duration,
+        uint128 totalAmountToRelease,
+        bytes32 root
+    ) external override onlyOwner {
         if (!_whitelistedMarkets.contains(market)) revert Rewarder__MarketNotWhitelisted();
         if (root == bytes32(0)) revert Rewarder__InvalidRoot();
         if (start == 0 || start < block.timestamp) revert Rewarder__InvalidStart();
 
-        uint256 length = _merkleTrees[market].length;
+        uint256 length = _epochs[market].length;
         if (epoch != length) revert Rewarder__InvalidEpoch();
 
         if (length > 0) {
-            MerkleTreePeriod storage previousVesting = _merkleTrees[market][length - 1];
+            EpochParameters storage previousParams = _epochs[market][length - 1];
 
-            if (start < previousVesting.start + previousVesting.duration) revert Rewarder__OverlappingEpoch();
+            if (start < previousParams.start + previousParams.duration) revert Rewarder__OverlappingEpoch();
         }
 
-        _merkleTrees[market].push(MerkleTreePeriod(root, start, duration));
+        _epochs[market].push(EpochParameters(root, start, duration, totalAmountToRelease));
 
         emit EpochAdded(market, epoch, start, duration, root);
     }
@@ -362,16 +381,16 @@ contract Rewarder is
      * @param epoch The epoch to cancel.
      */
     function cancelEpoch(address market, uint256 epoch) external override onlyOwner {
-        uint256 length = _merkleTrees[market].length;
+        uint256 length = _epochs[market].length;
         if (epoch >= length) revert Rewarder__EpochDoesNotExist();
 
-        if (epoch + 1 < length && _merkleTrees[market][epoch + 1].root != 0) {
+        if (epoch + 1 < length && _epochs[market][epoch + 1].root != 0) {
             revert Rewarder__OnlyValidLatestEpoch();
         }
 
         // We also reset the start and duration to allow the creation of a new vesting period that could have overlapped
         // with the canceled one
-        _merkleTrees[market][epoch] = MerkleTreePeriod(bytes32(0), 0, 0);
+        _epochs[market][epoch] = EpochParameters(bytes32(0), 0, 0, 0);
 
         emit EpochCanceled(market, epoch);
     }
@@ -401,7 +420,7 @@ contract Rewarder is
      * @dev Only callable by the owner.
      * @param newClawbackDelay The new clawback delay.
      */
-    function setClawbackDelay(uint256 newClawbackDelay) external override onlyOwner {
+    function setClawbackDelay(uint96 newClawbackDelay) external override onlyOwner {
         _setClawbackDelay(newClawbackDelay);
     }
 
@@ -435,74 +454,16 @@ contract Rewarder is
         bytes32 root,
         address market,
         uint256 epoch,
-        uint256 start,
-        uint256 duration,
+        uint64 start,
+        uint64 duration,
         IERC20Upgradeable token,
         address user,
-        uint256 amount,
+        uint128 amount,
         bytes32[] calldata merkleProof
     ) internal pure returns (bool isValid) {
         bytes32 leaf = keccak256(abi.encodePacked(market, epoch, start, duration, token, user, amount));
 
         return merkleProof.verifyCalldata(root, leaf);
-    }
-
-    /**
-     * @dev Returns the vested amount for a given start, duration and amount.
-     * @param start The start of the epoch.
-     * @param duration The duration of the epoch.
-     * @param amount The amount to claim.
-     * @return vestedAmount The vested amount for a given start, duration and amount.
-     */
-    function _vestingSchedule(uint256 start, uint256 duration, uint256 amount)
-        internal
-        view
-        returns (uint256 vestedAmount)
-    {
-        if (block.timestamp < start) return 0;
-        if (block.timestamp >= start + duration) return amount;
-        return amount * (block.timestamp - start) / duration;
-    }
-
-    /**
-     * @dev Helper function to transfer native or ERC20 tokens. The address(0) is used to represent native tokens.
-     * @param token The token to transfer.
-     * @param user The user to transfer to.
-     * @param amount The amount to transfer.
-     */
-    function _transferNativeOrERC20(IERC20Upgradeable token, address user, uint256 amount) internal {
-        if (token == IERC20Upgradeable(address(0))) {
-            (bool success,) = user.call{value: amount}("");
-            if (!success) revert Rewarder__NativeTransferFailed();
-        } else {
-            token.safeTransfer(user, amount);
-        }
-    }
-
-    /**
-     * @dev Return the releasable amount of token.
-     * @param market The market to check.
-     * @param epoch The epoch to check.
-     * @param token The token to check.
-     * @param user The user to check.
-     * @param amount The amount to check.
-     * @param merkleProof The merkle proof to check.
-     * @return releasable The releasable amount of token.
-     */
-    function _getReleasableAmount(
-        address market,
-        uint256 epoch,
-        IERC20Upgradeable token,
-        address user,
-        uint256 amount,
-        bytes32[] calldata merkleProof
-    ) internal view returns (uint256 releasable) {
-        MerkleTreePeriod memory mtp = _merkleTrees[market][epoch];
-
-        if (_verify(mtp.root, market, epoch, mtp.start, mtp.duration, token, user, amount, merkleProof)) {
-            bytes32 id = _getReleasedId(market, epoch, token, user);
-            releasable = _vestingSchedule(mtp.start, mtp.duration, amount) - _released[id];
-        }
     }
 
     /**
@@ -521,15 +482,71 @@ contract Rewarder is
         return keccak256(abi.encodePacked(market, epoch, token, user));
     }
 
+    /**
+     * @dev Returns the vested amount for a given start, duration and amount.
+     * @param start The start of the epoch.
+     * @param duration The duration of the epoch.
+     * @param amount The amount to claim.
+     * @return vestedAmount The vested amount for a given start, duration and amount.
+     */
+    function _vestingSchedule(uint64 start, uint64 duration, uint128 amount)
+        internal
+        view
+        returns (uint128 vestedAmount)
+    {
+        if (block.timestamp < start) return 0;
+        if (block.timestamp >= start + duration) return amount;
+        // Can't overflow because of the previous checks
+        return amount * (uint128(block.timestamp) - start) / duration;
+    }
+
+    /**
+     * @dev Return the releasable amount of token.
+     * @param market The market to check.
+     * @param epoch The epoch to check.
+     * @param token The token to check.
+     * @param user The user to check.
+     * @param amount The amount to check.
+     * @param merkleProof The merkle proof to check.
+     * @return releasable The releasable amount of token.
+     */
+    function _getReleasableAmount(
+        address market,
+        uint256 epoch,
+        IERC20Upgradeable token,
+        address user,
+        uint128 amount,
+        bytes32[] calldata merkleProof
+    ) internal view returns (uint128 releasable) {
+        EpochParameters memory params = _epochs[market][epoch];
+
+        if (_verify(params.root, market, epoch, params.start, params.duration, token, user, amount, merkleProof)) {
+            bytes32 id = _getReleasedId(market, epoch, token, user);
+            releasable = _vestingSchedule(params.start, params.duration, amount) - _released[id];
+        }
+    }
+
+    /**
+     * @dev Returns the clawback recipient and the clawback delay.
+     * @return clawbackRecipient The clawback recipient.
+     * @return clawbackDelay The clawback delay.
+     */
+    function _getClawbackParameters() internal view returns (address clawbackRecipient, uint96 clawbackDelay) {
+        clawbackRecipient = _clawbackRecipient;
+        clawbackDelay = _clawbackDelay;
+    }
+
     function _claimForSelf(
         address market,
         uint256 epoch,
         IERC20Upgradeable token,
-        uint256 amount,
+        uint128 amount,
         bytes32[] calldata merkleProof
     ) internal {
-        (uint256 amountToRelease, uint256 unreleased) =
-            _claim(market, epoch, token, msg.sender, amount, msg.sender, merkleProof);
+        EpochParameters memory params = _epochs[market][epoch];
+
+        (uint128 amountToRelease, uint128 unreleased) =
+            _claim(market, epoch, token, msg.sender, amount, msg.sender, merkleProof, params);
 
         emit RewardClaimed(msg.sender, market, token, epoch, amountToRelease, unreleased);
     }
@@ -548,25 +565,25 @@ contract Rewarder is
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
-        uint256 amount,
+        uint128 amount,
         address recipient,
-        bytes32[] calldata merkleProof
-    ) internal returns (uint256 amountToRelease, uint256 unreleased) {
-        MerkleTreePeriod memory mtp = _merkleTrees[market][epoch];
+        bytes32[] calldata merkleProof,
+        EpochParameters memory params
+    ) internal returns (uint128 amountToRelease, uint128 unreleased) {
+        if (params.root == bytes32(0)) revert Rewarder__EpochCanceled();
 
-        if (mtp.root == bytes32(0)) revert Rewarder__EpochCanceled();
-
-        if (!_verify(mtp.root, market, epoch, mtp.start, mtp.duration, token, user, amount, merkleProof)) {
+        if (!_verify(params.root, market, epoch, params.start, params.duration, token, user, amount, merkleProof)) {
             revert Rewarder__InvalidProof();
         }
 
         bytes32 id = _getReleasedId(market, epoch, token, user);
 
-        uint256 released = _released[id];
-        amountToRelease = _vestingSchedule(mtp.start, mtp.duration, amount) - released;
+        uint128 released = _released[id];
+        amountToRelease = _vestingSchedule(params.start, params.duration, amount) - released;
 
         if (amountToRelease > 0) {
-            uint256 totalReleased = released + amountToRelease;
+            _epochs[market][epoch].totalUnreleased = params.totalUnreleased - amountToRelease;
+            uint128 totalReleased = released + amountToRelease;
 
             _released[id] = totalReleased;
             unreleased = amount - totalReleased;
@@ -579,7 +596,7 @@ contract Rewarder is
      * @dev Sets the clawback delay.
      * @param newClawbackDelay The new clawback delay.
      */
-    function _setClawbackDelay(uint256 newClawbackDelay) internal {
+    function _setClawbackDelay(uint96 newClawbackDelay) internal {
         if (newClawbackDelay < 1 days) revert Rewarder__ClawbackDelayTooLow();
 
         _clawbackDelay = newClawbackDelay;
@@ -613,16 +630,31 @@ contract Rewarder is
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
-        uint256 amount,
+        uint128 amount,
         address recipient,
-        uint256 clawbackDelay,
-        bytes32[] calldata merkleProof,
-        MerkleTreePeriod memory mtp
+        uint96 clawbackDelay,
+        bytes32[] calldata merkleProof
     ) internal {
-        if (block.timestamp < mtp.start + mtp.duration + clawbackDelay) revert Rewarder__ClawbackDelayNotPassed();
+        EpochParameters memory params = _epochs[market][epoch];
+        if (block.timestamp < params.start + params.duration + clawbackDelay) revert Rewarder__ClawbackDelayNotPassed();
 
-        (uint256 clawedBackAmount,) = _claim(market, epoch, token, user, amount, recipient, merkleProof);
+        (uint128 clawedBackAmount,) = _claim(market, epoch, token, user, amount, recipient, merkleProof, params);
 
         emit RewardClawedBack(user, market, token, epoch, clawedBackAmount, recipient, msg.sender);
+    }
+
+    /**
+     * @dev Helper function to transfer native or ERC20 tokens. The address(0) is used to represent native tokens.
+     * @param token The token to transfer.
+     * @param user The user to transfer to.
+     * @param amount The amount to transfer.
+     */
+    function _transferNativeOrERC20(IERC20Upgradeable token, address user, uint128 amount) internal {
+        if (token == IERC20Upgradeable(address(0))) {
+            (bool success,) = user.call{value: amount}("");
+            if (!success) revert Rewarder__NativeTransferFailed();
+        } else {
+            token.safeTransfer(user, amount);
+        }
     }
 }
