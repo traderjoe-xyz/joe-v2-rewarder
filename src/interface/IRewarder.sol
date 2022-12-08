@@ -23,6 +23,10 @@ interface IRewarder {
     error Rewarder__ClawbackDelayTooLow();
     error Rewarder__ClawbackDelayNotPassed();
     error Rewarder__ZeroAddress();
+    error Rewarder__InvalidLength();
+    error Rewarder__InvalidAmount();
+    error Rewarder__AlreadySetForEpoch(IERC20Upgradeable token);
+    error Rewarder__InsufficientBalance(IERC20Upgradeable token);
 
     /**
      * @dev Structure to store the Merkle root, the start and the duration of an epoch.
@@ -33,9 +37,8 @@ interface IRewarder {
      */
     struct EpochParameters {
         bytes32 root;
-        uint64 start;
-        uint64 duration;
-        uint128 totalUnreleased;
+        uint128 start;
+        uint128 duration;
     }
 
     /**
@@ -52,7 +55,7 @@ interface IRewarder {
         uint256 epoch;
         IERC20Upgradeable token;
         address user;
-        uint128 amount;
+        uint256 amount;
         bytes32[] merkleProof;
     }
 
@@ -61,11 +64,11 @@ interface IRewarder {
         address indexed market,
         IERC20Upgradeable indexed token,
         uint256 epoch,
-        uint128 released,
-        uint128 unreleased
+        uint256 released,
+        uint256 unreleased
     );
 
-    event EpochAdded(address indexed market, uint256 epoch, uint64 start, uint64 duration, bytes32 root);
+    event EpochAdded(address indexed market, uint256 epoch, uint128 start, uint128 duration, bytes32 root);
 
     event EpochCanceled(address indexed market, uint256 epoch);
 
@@ -82,7 +85,7 @@ interface IRewarder {
         address indexed market,
         IERC20Upgradeable indexed token,
         uint256 epoch,
-        uint128 clawbackAmount,
+        uint256 clawbackAmount,
         address recipient,
         address sender
     );
@@ -97,7 +100,7 @@ interface IRewarder {
 
     function getWhitelistedMarket(uint256 index) external view returns (address market);
 
-    function isWhitelistedMarket(address market) external view returns (bool isWhitelisted);
+    function isMarketWhitelisted(address market) external view returns (bool isWhitelisted);
 
     function getNumberOfEpochs(address market) external view returns (uint256 epochs);
 
@@ -106,30 +109,30 @@ interface IRewarder {
     function getReleased(address market, uint256 epoch, IERC20Upgradeable token, address user)
         external
         view
-        returns (uint128 released);
+        returns (uint256 released);
 
     function getReleasableAmount(
         address market,
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
-        uint128 amount,
+        uint256 amount,
         bytes32[] calldata merkleProof
-    ) external view returns (uint128 releasable);
+    ) external view returns (uint256 releasable);
 
     function verify(
         address market,
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
-        uint128 amount,
+        uint256 amount,
         bytes32[] calldata merkleProof
     ) external view returns (bool isValid);
 
     function getBatchReleasableAmounts(MerkleEntry[] calldata merkleEntries)
         external
         view
-        returns (uint128[] memory releasableAmounts);
+        returns (uint256[] memory releasableAmounts);
 
     function getClawbackParameters() external view returns (address clawbackRecipient, uint96 clawbackDelay);
 
@@ -137,7 +140,7 @@ interface IRewarder {
         address market,
         uint256 epoch,
         IERC20Upgradeable token,
-        uint128 amount,
+        uint256 amount,
         bytes32[] calldata merkleProof
     ) external;
 
@@ -148,7 +151,7 @@ interface IRewarder {
         uint256 epoch,
         IERC20Upgradeable token,
         address user,
-        uint128 amount,
+        uint256 amount,
         bytes32[] calldata merkleProof
     ) external;
 
@@ -158,8 +161,15 @@ interface IRewarder {
 
     function unpause() external;
 
-    function setNewEpoch(address market, uint256 epoch, uint64 start, uint64 duration, uint128 total, bytes32 root)
-        external;
+    function setNewEpoch(
+        address market,
+        uint256 epoch,
+        uint128 start,
+        uint128 duration,
+        IERC20Upgradeable[] calldata tokens,
+        uint256[] calldata totalAmountToRelease,
+        bytes32 root
+    ) external;
 
     function cancelEpoch(address market, uint256 epoch) external;
 
