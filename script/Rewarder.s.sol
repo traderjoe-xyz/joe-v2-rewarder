@@ -70,7 +70,7 @@ contract RewarderScript is Script {
      * @dev The structures are ordered in alphabetical order, don't change the order.
      */
     struct Reward {
-        uint256 amount;
+        uint128 amount;
         address token;
         address user;
     }
@@ -79,11 +79,12 @@ contract RewarderScript is Script {
      * @dev The structures are ordered in alphabetical order, don't change the order.
      */
     struct Market {
-        uint256 duration;
+        uint64 duration;
         uint256 epoch;
         address market;
         bytes32 root;
-        uint256 start;
+        uint64 start;
+        uint128 totalRewards;
         User[] users;
     }
 
@@ -91,7 +92,7 @@ contract RewarderScript is Script {
      * @dev The structures are ordered in alphabetical order, don't change the order.
      */
     struct User {
-        uint256 amount;
+        uint128 amount;
         bytes32[] proof;
         address token;
         address user;
@@ -147,8 +148,10 @@ contract RewarderScript is Script {
 
             address market = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".address"))), (address));
             uint256 epoch = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".epoch"))), (uint256));
-            uint256 start = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".start"))), (uint256));
-            uint256 duration = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".duration"))), (uint256));
+            uint64 start = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".start"))), (uint64));
+            uint64 duration = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".duration"))), (uint64));
+            uint128 totalRewards =
+                abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".totalRewards"))), (uint128));
 
             require(_set.add(keccak256(abi.encodePacked(market, epoch))), "Market already exists");
 
@@ -158,11 +161,14 @@ contract RewarderScript is Script {
             m.epoch = epoch;
             m.start = start;
             m.duration = duration;
+            m.totalRewards = totalRewards;
 
             Reward[] memory rewards =
                 abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".rewards"))), (Reward[]));
 
             bytes32[] memory leaves = new bytes32[](rewards.length);
+
+            uint256 sumRewards;
 
             for (uint256 j; j < rewards.length; j++) {
                 Reward memory reward = rewards[j];
@@ -172,12 +178,18 @@ contract RewarderScript is Script {
                     "User rewards already exists"
                 );
 
+                require(reward.amount > 0, "Invalid reward amount");
+
+                sumRewards += reward.amount;
+
                 bytes32 leaf = keccak256(
                     abi.encodePacked(market, epoch, start, duration, reward.token, reward.user, reward.amount)
                 );
 
                 leaves[j] = leaf;
             }
+
+            require(sumRewards == totalRewards, "Invalid total rewards");
 
             bytes32 root = merkle.getRoot(leaves);
             m.root = root;
@@ -188,8 +200,8 @@ contract RewarderScript is Script {
             require(duration <= 365 days, "duration is probably too long");
 
             if (epoch > 0) {
-                (uint256 startPrevious, uint256 durationPrevious) = rewarder.getVestingPeriodAtEpoch(market, epoch - 1);
-                require(startPrevious + durationPrevious <= start, "Overlapping epochs");
+                IRewarder.EpochParameters memory previousParams = rewarder.getEpochParameters(market, epoch - 1);
+                require(previousParams.start + previousParams.duration <= start, "Overlapping epochs");
             }
 
             for (uint256 j; j < rewards.length; j++) {
@@ -229,8 +241,10 @@ contract RewarderScript is Script {
 
             address market = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".address"))), (address));
             uint256 epoch = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".epoch"))), (uint256));
-            uint256 start = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".start"))), (uint256));
-            uint256 duration = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".duration"))), (uint256));
+            uint64 start = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".start"))), (uint64));
+            uint64 duration = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".duration"))), (uint64));
+            uint128 totalRewards =
+                abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".totalRewards"))), (uint128));
             bytes32 root = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".root"))), (bytes32));
 
             require(_set.contains(keccak256(abi.encodePacked(market, epoch))), "Market does not exists");
@@ -240,8 +254,8 @@ contract RewarderScript is Script {
             require(duration <= 365 days, "duration is probably too long");
 
             if (epoch > 0) {
-                (uint256 startPrevious, uint256 durationPrevious) = rewarder.getVestingPeriodAtEpoch(market, epoch - 1);
-                require(startPrevious + durationPrevious <= start, "Overlapping epochs");
+                IRewarder.EpochParameters memory previousParams = rewarder.getEpochParameters(market, epoch - 1);
+                require(previousParams.start + previousParams.duration <= start, "Overlapping epochs");
             }
 
             User[] memory users = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".rewards"))), (User[]));
@@ -259,6 +273,7 @@ contract RewarderScript is Script {
                 require(m.market == market, "Invalid market");
                 require(m.root == root, "Invalid root");
                 require(m.start == start, "Invalid start");
+                require(m.totalRewards == totalRewards, "Invalid total rewards");
 
                 User storage u = m.users[j];
 
@@ -284,11 +299,11 @@ contract RewarderScript is Script {
         bytes32 root,
         address market,
         uint256 epoch,
-        uint256 start,
-        uint256 duration,
+        uint64 start,
+        uint64 duration,
         address token,
         address user,
-        uint256 amount,
+        uint128 amount,
         bytes32[] memory merkleProof
     ) internal pure returns (bool) {
         bytes32 leaf = keccak256(abi.encodePacked(market, epoch, start, duration, token, user, amount));
@@ -312,11 +327,12 @@ contract RewarderScript is Script {
     function convertMarketToString(Market storage market) internal view returns (string memory) {
         string memory str = "{";
         str = string(abi.encodePacked(str, '"address":"', StringsUpgradeable.toHexString(market.market)));
-        str = string(abi.encodePacked(str, '","start":', StringsUpgradeable.toString(market.start)));
+        str = string(abi.encodePacked(str, '","epoch":', StringsUpgradeable.toString(market.epoch)));
+        str = string(abi.encodePacked(str, ',"start":', StringsUpgradeable.toString(market.start)));
         str = string(abi.encodePacked(str, ',"duration":', StringsUpgradeable.toString(market.duration)));
-        str = string(abi.encodePacked(str, ',"epoch":', StringsUpgradeable.toString(market.epoch)));
         str = string(abi.encodePacked(str, ',"root":"', StringsUpgradeable.toHexString(uint256(market.root), 32)));
-        str = string(abi.encodePacked(str, '","rewards":', convertArrayOfUserToString(market.users)));
+        str = string(abi.encodePacked(str, '","totalRewards":', StringsUpgradeable.toString(market.totalRewards)));
+        str = string(abi.encodePacked(str, ',"rewards":', convertArrayOfUserToString(market.users)));
         str = string(abi.encodePacked(str, "}"));
         return str;
     }

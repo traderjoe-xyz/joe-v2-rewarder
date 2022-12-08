@@ -3,18 +3,19 @@
   "markets": [
     {
       "address": "0x000000000000000000000000000000000000000a",
+      "epoch": 0,
       "start": 10,
       "duration": 20,
-      "epoch": 0,
-      "root": "0x58821b80a0996236a20fcb6b8c5632135e579908a95d547f1c93696d98a9f798",
+      "root": "0x3868cf85d00271f976e0274cecaec3ca371ef34a985ba0d25bf75c7041704ea8",
+      "totalRewards": 600,
       "rewards": [
         {
           "user": "0xacc0000000000000000000000000000000000001",
           "token": "0xadd0000000000000000000000000000000000001",
           "amount": 100,
           "proof": [
-            "0x41e688f558a5793fb338ca8441eca72b4cfdac9c02f2d4908654c91063bf40c5",
-            "0x91b39d493e902f06808c17463a93de7662258f047ebe918fe640eca15a43af16"
+            "0xdf8fb020e34881256bca829e1ecef5f35c11836c3f9564e78f7433d65f730832",
+            "0x3ace135c9b184379e073d876eb87c1ae2a748712cb9c963dc60d071a27d4ae8f"
           ]
         },
         {
@@ -22,8 +23,8 @@
           "token": "0xadd0000000000000000000000000000000000001",
           "amount": 200,
           "proof": [
-            "0xdb7609c0891c814093981f1d1b1ca38c713829286b50e891fe91a1a224a0914c",
-            "0x91b39d493e902f06808c17463a93de7662258f047ebe918fe640eca15a43af16"
+            "0xd570848b9518079a32768f16979078e16aa87306f4e9eb29deb039bd557e383d",
+            "0x3ace135c9b184379e073d876eb87c1ae2a748712cb9c963dc60d071a27d4ae8f"
           ]
         },
         {
@@ -32,24 +33,25 @@
           "amount": 300,
           "proof": [
             "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "0xf261074df691361ddfa716e6a07c0e75471b608a3ce923c928012ded09cde5f1"
+            "0xebbd1d57be387e6ba394f3b7dfa87840032beebc26a4bffa034baf64f02fa72a"
           ]
         }
       ]
     },
     {
       "address": "0x000000000000000000000000000000000000000b",
+      "epoch": 0,
       "start": 15,
       "duration": 35,
-      "epoch": 0,
-      "root": "0x5d70817c9f17ed5d205d22b07480351f08f1b29d78108e41a9ad09eb7bbb12c5",
+      "root": "0xc0ecc18ec52ed170daff10d3b67fd7a957c0c40a3b30fd84efb9d9045711d304",
+      "totalRewards": 900,
       "rewards": [
         {
           "user": "0xacc0000000000000000000000000000000000001",
           "token": "0xadd0000000000000000000000000000000000001",
           "amount": 400,
           "proof": [
-            "0xc39fcf90bc54dc337b9330c2b89d07cc3954791d30cf01921397655f882b05d7"
+            "0xc602de34384c95584d36e6bfd09a4a5771130fb4cbfef172e61dea206aeeec9d"
           ]
         },
         {
@@ -57,24 +59,25 @@
           "token": "0xadd0000000000000000000000000000000000001",
           "amount": 500,
           "proof": [
-            "0x5ba1a8d34f367802bbd02fcf9e6bce691ab7809c256dd825614160a00279dea6"
+            "0x99ddce624fef3fb1b945338153824f1c2c0ee3477ef9ff17d9382b56d31b945f"
           ]
         }
       ]
     },
     {
       "address": "0x000000000000000000000000000000000000000c",
+      "epoch": 0,
       "start": 10,
       "duration": 5,
-      "epoch": 0,
-      "root": "0x43982285e132afe466d02a04045d9ac8eb27baad76906ec1229d018abf3c2edc",
+      "root": "0x03e7f420e40d307b878c6f09eaf28e89696ad5a14b3b93c37dea0d428b2cd7e1",
+      "totalRewards": 1300,
       "rewards": [
         {
           "user": "0xacc0000000000000000000000000000000000001",
           "token": "0xadd0000000000000000000000000000000000002",
           "amount": 600,
           "proof": [
-            "0x27868375a9eaffc87bce49b9c10b1db159981fa6427ddcb41f415de407b55604"
+            "0xcb6f04483c624d55ca1b8c388fde5eb49aa6e5a6871a5eb224f6ada3d1e48de3"
           ]
         },
         {
@@ -82,25 +85,26 @@
           "token": "0xadd0000000000000000000000000000000000002",
           "amount": 700,
           "proof": [
-            "0x9c1586144a0cb127bf0146aec65136fa48b43c488cde62b25cba673eb7b6dcbd"
+            "0x4c189402f107097ff900b3cb52524403b08f2174765e5a2a2ef66539a69cd9c2"
           ]
         }
       ]
     },
     {
       "address": "0x000000000000000000000000000000000000000d",
+      "epoch": 0,
       "start": 8,
       "duration": 14,
-      "epoch": 0,
-      "root": "0xe7690ea70e3e042baabbaf5f45df0f8ca15c9f6ca66f28f33c8d32d11cd76794",
+      "root": "0xbddb409e3be59a1ca0befc9b49080587bdf525947501d697c2424238ba96d46b",
+      "totalRewards": 3800,
       "rewards": [
         {
           "user": "0xacc0000000000000000000000000000000000002",
           "token": "0xadd0000000000000000000000000000000000001",
           "amount": 800,
           "proof": [
-            "0xe9a9d0a714b7ad40a7bc9264b9836984f97b6107ffe01bfe4835a538d094a76a",
-            "0x97b23f1b1a2451f4b7b8c85ce84f7626459703381f97e131f8b46e9ec1b8af48"
+            "0x990ff20ae15b6398bb9d25cb731ee5c94ef898bd07019bee98ddb85b2d93623b",
+            "0x7e27351fdedc16b92245e42f8c3dc7f217bc0f0654fe06b13385f7f60dfd8eaa"
           ]
         },
         {
@@ -108,8 +112,8 @@
           "token": "0xadd0000000000000000000000000000000000002",
           "amount": 900,
           "proof": [
-            "0x4e036b7ce459beb4b6b1c7722cb81dc9c7b4b49db1c4c9f29fb4fae1ba0710f2",
-            "0x97b23f1b1a2451f4b7b8c85ce84f7626459703381f97e131f8b46e9ec1b8af48"
+            "0xec668ca51f795c1be6187cc64b8ad7aa57ae32f6cb6ad7e42f31a007e1ffc7ea",
+            "0x7e27351fdedc16b92245e42f8c3dc7f217bc0f0654fe06b13385f7f60dfd8eaa"
           ]
         },
         {
@@ -117,8 +121,8 @@
           "token": "0xadd0000000000000000000000000000000000001",
           "amount": 1000,
           "proof": [
-            "0x670300c7322197554faef3ca307ef58becb1065421d6398968a6ec2354878689",
-            "0x40a856e68fa2078474a6a4c0e1c3b0f4f63eaeaa44f988ae934fbc570e312d65"
+            "0xe133bf47990356550de0eac30ea914912757a5fdc38bd6684c10563579aac6be",
+            "0x58d2aa35daadbe6d38eb3c44fa0f1c1f3e987246ca2ca0d5c8a0d4adf8665a89"
           ]
         },
         {
@@ -126,8 +130,8 @@
           "token": "0xadd0000000000000000000000000000000000002",
           "amount": 1100,
           "proof": [
-            "0xfadfc8fa4d1290fb9b12e736a562e8ffbd0525fa79ad0f063f2f68174ce3a624",
-            "0x40a856e68fa2078474a6a4c0e1c3b0f4f63eaeaa44f988ae934fbc570e312d65"
+            "0x61dfca132262becde54412cf99784fd84831a55b31e74e9bb5f161b20dfc4f62",
+            "0x58d2aa35daadbe6d38eb3c44fa0f1c1f3e987246ca2ca0d5c8a0d4adf8665a89"
           ]
         }
       ]
