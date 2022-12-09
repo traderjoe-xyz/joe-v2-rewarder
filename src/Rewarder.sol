@@ -404,7 +404,7 @@ contract Rewarder is
 
     /**
      * @notice Cancels the given epoch for the given market.
-     * @dev Can only called the latest epoch that isn't cancelled yet. Only callable by the owner.
+     * @dev Can only be called for the latest epoch that isn't cancelled yet. Only callable by the owner.
      * @param market The market to cancel.
      * @param epoch The epoch to cancel.
      */
@@ -581,6 +581,14 @@ contract Rewarder is
         clawbackDelay = _clawbackDelay;
     }
 
+    /**
+     * @dev Claims the vested amount for the msg.sender for the given market, epoch, token, amount and merkle proof.
+     * @param market The market to claim.
+     * @param epoch The epoch to claim.
+     * @param token The token to claim.
+     * @param amount The amount to claim.
+     * @param merkleProof The merkle proof to claim.
+     */
     function _claimForSelf(
         address market,
         uint256 epoch,
@@ -670,6 +678,8 @@ contract Rewarder is
      * @param token The token to clawback.
      * @param user The user to clawback.
      * @param amount The amount to clawback.
+     * @param recipient The recipient of the clawback.
+     * @param clawbackDelay The clawback delay.
      * @param merkleProof The merkle proof to clawback.
      */
     function _clawback(
