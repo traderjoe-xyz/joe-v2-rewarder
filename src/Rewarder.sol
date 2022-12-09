@@ -582,6 +582,20 @@ contract Rewarder is
     }
 
     /**
+     * @dev Helper function to return the balance of native or ERC20 tokens of this contract. The address(0) is used to
+     * represent native tokens.
+     * @param token The token to get the balance of.
+     * @return The balance of the token.
+     */
+    function _balanceOfNativeOrERC20(IERC20Upgradeable token) internal view returns (uint256) {
+        if (token == IERC20Upgradeable(address(0))) {
+            return address(this).balance;
+        } else {
+            return token.balanceOf(address(this));
+        }
+    }
+
+    /**
      * @dev Claims the vested amount for the msg.sender for the given market, epoch, token, amount and merkle proof.
      * @param market The market to claim.
      * @param epoch The epoch to claim.
@@ -712,20 +726,6 @@ contract Rewarder is
             if (!success) revert Rewarder__NativeTransferFailed();
         } else {
             token.safeTransfer(user, amount);
-        }
-    }
-
-    /**
-     * @dev Helper function to return the balance of native or ERC20 tokens of this contract. The address(0) is used to
-     * represent native tokens.
-     * @param token The token to get the balance of.
-     * @return The balance of the token.
-     */
-    function _balanceOfNativeOrERC20(IERC20Upgradeable token) internal view returns (uint256) {
-        if (token == IERC20Upgradeable(address(0))) {
-            return address(this).balance;
-        } else {
-            return token.balanceOf(address(this));
         }
     }
 }
