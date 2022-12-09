@@ -3,131 +3,159 @@
   "markets": [
     {
       "address": "0x000000000000000000000000000000000000000a",
+      "epoch": 0,
       "start": 10,
       "duration": 20,
-      "epoch": 0,
-      "root": "0x58821b80a0996236a20fcb6b8c5632135e579908a95d547f1c93696d98a9f798",
+      "root": "0x9320ebab936dae072fd9a78f8600211b30d5d9d0b8e2f1b48c94a4c251e38892",
+      "length": 1,
       "rewards": [
         {
-          "user": "0xacc0000000000000000000000000000000000001",
-          "token": "0xadd0000000000000000000000000000000000001",
-          "amount": 100,
-          "proof": [
-            "0x41e688f558a5793fb338ca8441eca72b4cfdac9c02f2d4908654c91063bf40c5",
-            "0x91b39d493e902f06808c17463a93de7662258f047ebe918fe640eca15a43af16"
-          ]
-        },
-        {
-          "user": "0xacc0000000000000000000000000000000000002",
-          "token": "0xadd0000000000000000000000000000000000001",
-          "amount": 200,
-          "proof": [
-            "0xdb7609c0891c814093981f1d1b1ca38c713829286b50e891fe91a1a224a0914c",
-            "0x91b39d493e902f06808c17463a93de7662258f047ebe918fe640eca15a43af16"
-          ]
-        },
-        {
-          "user": "0xacc0000000000000000000000000000000000003",
-          "token": "0xadd0000000000000000000000000000000000001",
-          "amount": 300,
-          "proof": [
-            "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "0xf261074df691361ddfa716e6a07c0e75471b608a3ce923c928012ded09cde5f1"
+          "address": "0xadd0000000000000000000000000000000000001",
+          "totalRewards": 600,
+          "length": 3,
+          "users": [
+            {
+              "address": "0xacc0000000000000000000000000000000000001",
+              "amount": 100,
+              "proof": [
+                "0x3ddeb1db143ca009605e407e83f2a44b3e78f0181045adc8d75353ee481906f0",
+                "0xd95e26ae78f78f5a0477eb4e9c5d928bd1b2ff9aac4571f0fdef6a3fdfbcbd9e"
+              ]
+            },
+            {
+              "address": "0xacc0000000000000000000000000000000000002",
+              "amount": 200,
+              "proof": [
+                "0x6db483a09d07a5c6482bd552d4103101062c0b02c0a500de871f6fabfbc23ad1",
+                "0xd95e26ae78f78f5a0477eb4e9c5d928bd1b2ff9aac4571f0fdef6a3fdfbcbd9e"
+              ]
+            },
+            {
+              "address": "0xacc0000000000000000000000000000000000003",
+              "amount": 300,
+              "proof": [
+                "0x0000000000000000000000000000000000000000000000000000000000000000",
+                "0x4f2f2eedac8ffb7bd59d0cb6deb11d0a2ddc32e3f7c8d7811db3eedf7fbcfa39"
+              ]
+            }
           ]
         }
       ]
     },
     {
       "address": "0x000000000000000000000000000000000000000b",
+      "epoch": 0,
       "start": 15,
       "duration": 35,
-      "epoch": 0,
-      "root": "0x5d70817c9f17ed5d205d22b07480351f08f1b29d78108e41a9ad09eb7bbb12c5",
+      "root": "0xe53a7f43b2f8751300a880ef1b179bc0d56f9bd08d53312eaf64e6899331a3ce",
+      "length": 1,
       "rewards": [
         {
-          "user": "0xacc0000000000000000000000000000000000001",
-          "token": "0xadd0000000000000000000000000000000000001",
-          "amount": 400,
-          "proof": [
-            "0xc39fcf90bc54dc337b9330c2b89d07cc3954791d30cf01921397655f882b05d7"
-          ]
-        },
-        {
-          "user": "0xacc0000000000000000000000000000000000003",
-          "token": "0xadd0000000000000000000000000000000000001",
-          "amount": 500,
-          "proof": [
-            "0x5ba1a8d34f367802bbd02fcf9e6bce691ab7809c256dd825614160a00279dea6"
+          "address": "0xacc0000000000000000000000000000000000001",
+          "totalRewards": 900,
+          "length": 2,
+          "users": [
+            {
+              "address": "0xacc0000000000000000000000000000000000001",
+              "amount": 400,
+              "proof": [
+                "0xb9a66291af27a3e1fc60ecfc3447477916fba082efdbf271be2c23141ea0096d"
+              ]
+            },
+            {
+              "address": "0xacc0000000000000000000000000000000000003",
+              "amount": 500,
+              "proof": [
+                "0xff0febd94b6feab4e20120f7c2acd28b59013347b9618836e57ef5fd244defda"
+              ]
+            }
           ]
         }
       ]
     },
     {
       "address": "0x000000000000000000000000000000000000000c",
+      "epoch": 0,
       "start": 10,
       "duration": 5,
-      "epoch": 0,
-      "root": "0x43982285e132afe466d02a04045d9ac8eb27baad76906ec1229d018abf3c2edc",
+      "root": "0xcab1df0d5f65ecf3ba9d425829ee2ea88a6400e339f26b120099037cd4fbd4a0",
+      "length": 1,
       "rewards": [
         {
-          "user": "0xacc0000000000000000000000000000000000001",
-          "token": "0xadd0000000000000000000000000000000000002",
-          "amount": 600,
-          "proof": [
-            "0x27868375a9eaffc87bce49b9c10b1db159981fa6427ddcb41f415de407b55604"
-          ]
-        },
-        {
-          "user": "0xacc0000000000000000000000000000000000002",
-          "token": "0xadd0000000000000000000000000000000000002",
-          "amount": 700,
-          "proof": [
-            "0x9c1586144a0cb127bf0146aec65136fa48b43c488cde62b25cba673eb7b6dcbd"
+          "address": "0xadd0000000000000000000000000000000000002",
+          "totalRewards": 1300,
+          "length": 2,
+          "users": [
+            {
+              "address": "0xacc0000000000000000000000000000000000001",
+              "amount": 600,
+              "proof": [
+                "0x99f17f14d1e164105851b60657e5b634dfbd3439f14732b2777e901bbc871c90"
+              ]
+            },
+            {
+              "address": "0xacc0000000000000000000000000000000000002",
+              "amount": 700,
+              "proof": [
+                "0xc6dfd6045a286082d7ee8760e80f1299ac797206f93ba5c670bc619225667303"
+              ]
+            }
           ]
         }
       ]
     },
     {
       "address": "0x000000000000000000000000000000000000000d",
+      "epoch": 0,
       "start": 8,
       "duration": 14,
-      "epoch": 0,
-      "root": "0xe7690ea70e3e042baabbaf5f45df0f8ca15c9f6ca66f28f33c8d32d11cd76794",
+      "root": "0xfd6b82e9b2f335463ffecf6c0801548210263a44b61a518f826a174103ab9f81",
+      "length": 2,
       "rewards": [
         {
-          "user": "0xacc0000000000000000000000000000000000002",
-          "token": "0xadd0000000000000000000000000000000000001",
-          "amount": 800,
-          "proof": [
-            "0xe9a9d0a714b7ad40a7bc9264b9836984f97b6107ffe01bfe4835a538d094a76a",
-            "0x97b23f1b1a2451f4b7b8c85ce84f7626459703381f97e131f8b46e9ec1b8af48"
+          "address": "0xadd0000000000000000000000000000000000001",
+          "totalRewards": 1800,
+          "length": 2,
+          "users": [
+            {
+              "address": "0xacc0000000000000000000000000000000000002",
+              "amount": 800,
+              "proof": [
+                "0x6eaf0b5a61d0781734bf0a5620441e4993aa450b0c279cbd9c9713b5b6d74491",
+                "0x942cfe94ba8c77247956935ab0a3f8d8fec9b2b243c139c6cebf1d48a8f9eb1b"
+              ]
+            },
+            {
+              "address": "0xacc0000000000000000000000000000000000003",
+              "amount": 1000,
+              "proof": [
+                "0x3613adc14674da88645a5532c9b1b75b16c0a6a5140f871a31b5fdb1b086b0ef",
+                "0x942cfe94ba8c77247956935ab0a3f8d8fec9b2b243c139c6cebf1d48a8f9eb1b"
+              ]
+            }
           ]
         },
         {
-          "user": "0xacc0000000000000000000000000000000000002",
-          "token": "0xadd0000000000000000000000000000000000002",
-          "amount": 900,
-          "proof": [
-            "0x4e036b7ce459beb4b6b1c7722cb81dc9c7b4b49db1c4c9f29fb4fae1ba0710f2",
-            "0x97b23f1b1a2451f4b7b8c85ce84f7626459703381f97e131f8b46e9ec1b8af48"
-          ]
-        },
-        {
-          "user": "0xacc0000000000000000000000000000000000003",
-          "token": "0xadd0000000000000000000000000000000000001",
-          "amount": 1000,
-          "proof": [
-            "0x670300c7322197554faef3ca307ef58becb1065421d6398968a6ec2354878689",
-            "0x40a856e68fa2078474a6a4c0e1c3b0f4f63eaeaa44f988ae934fbc570e312d65"
-          ]
-        },
-        {
-          "user": "0xacc0000000000000000000000000000000000003",
-          "token": "0xadd0000000000000000000000000000000000002",
-          "amount": 1100,
-          "proof": [
-            "0xfadfc8fa4d1290fb9b12e736a562e8ffbd0525fa79ad0f063f2f68174ce3a624",
-            "0x40a856e68fa2078474a6a4c0e1c3b0f4f63eaeaa44f988ae934fbc570e312d65"
+          "address": "0xacc0000000000000000000000000000000000002",
+          "totalRewards": 2000,
+          "length": 2,
+          "users": [
+            {
+              "address": "0xacc0000000000000000000000000000000000002",
+              "amount": 900,
+              "proof": [
+                "0x4b496c82cde9e4b5b878adb9a5ddfdb8bcf1a5ff10cdc6f928b4bcac673832e6",
+                "0x281b506df130e75794cd94e4ce897fd763e537d3c967564c5b1276c7de691df2"
+              ]
+            },
+            {
+              "address": "0xacc0000000000000000000000000000000000003",
+              "amount": 1100,
+              "proof": [
+                "0xcffc0c85e9405521cb7ee353b57c4453777076240846189027c11f8bcffc2d26",
+                "0x281b506df130e75794cd94e4ce897fd763e537d3c967564c5b1276c7de691df2"
+              ]
+            }
           ]
         }
       ]
