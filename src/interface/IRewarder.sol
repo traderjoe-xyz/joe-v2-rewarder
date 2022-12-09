@@ -12,9 +12,7 @@ interface IRewarder {
     error Rewarder__InvalidEpoch();
     error Rewarder__OverlappingEpoch();
     error Rewarder__EpochDoesNotExist();
-    error Rewarder__EpochHasNotStarted();
     error Rewarder__OnlyValidLatestEpoch();
-    error Rewarder__EpochHasEnded();
     error Rewarder__MarketNotWhitelisted();
     error Rewarder__MarketAlreadyWhitelisted();
     error Rewarder__NativeTransferFailed();
