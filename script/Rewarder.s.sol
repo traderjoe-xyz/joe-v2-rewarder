@@ -112,6 +112,13 @@ contract RewarderScript is Script {
         address user;
     }
 
+    struct Counter {
+        uint256 i;
+        uint256 j;
+        uint256 k;
+        uint256 l;
+    }
+
     Rewarder public rewarder;
     Merkle public merkle;
 
@@ -249,82 +256,109 @@ contract RewarderScript is Script {
             }
         }
 
-        string memory out = convertArrayOfMarketToString(_markets);
+        string memory out = _convertArrayOfMarketToString(_markets);
         string memory f_out = string(abi.encodePacked("./files/out/", fileName, "-out.json"));
 
         vm.writeJson(out, f_out);
 
-        // verifyGeneratedJSON(f_out);
+        verifyGeneratedJSON(f_out);
     }
 
-    // function verifyGeneratedJSON(string memory file) public {
-    //     string memory json = vm.readFile(file);
-    //     vm.closeFile(file);
+    function verifyGeneratedJSON(string memory file) public {
+        string memory json = vm.readFile(file);
+        vm.closeFile(file);
 
-    //     uint256 length = abi.decode(vm.parseJson(json, ".length"), (uint256));
+        uint256 length = abi.decode(vm.parseJson(json, ".length"), (uint256));
 
-    //     require(_markets.length == length, "Invalid length");
+        require(_markets.length == length, "Invalid length");
 
-    //     for (uint256 i; i < length; i++) {
-    //         Market storage m = _markets[i];
+        Counter memory c;
 
-    //         string memory mKey = string(abi.encodePacked("._markets[", StringsUpgradeable.toString(i), "]"));
+        for (c.i = 0; c.i < length; ++c.i) {
+            Market storage m = _markets[c.i];
 
-    //         address market = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".address"))), (address));
-    //         uint256 epoch = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".epoch"))), (uint256));
-    //         uint128 start = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".start"))), (uint128));
-    //         uint128 duration = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".duration"))), (uint128));
-    //         uint256 totalRewards =
-    //             abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".totalRewards"))), (uint256));
-    //         bytes32 root = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".root"))), (bytes32));
+            string memory mKey = string(abi.encodePacked(".markets[", StringsUpgradeable.toString(c.i), "]"));
 
-    //         require(_set.contains(keccak256(abi.encodePacked(market, epoch))), "Market does not exists");
+            require(
+                m.market == abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".address"))), (address)),
+                "Invalid market"
+            );
+            require(
+                m.epoch == abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".epoch"))), (uint256)),
+                "Invalid epoch"
+            );
+            require(
+                m.start == abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".start"))), (uint128)),
+                "Invalid start"
+            );
+            require(
+                m.duration == abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".duration"))), (uint128)),
+                "Invalid duration"
+            );
+            require(
+                m.root == abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".root"))), (bytes32)),
+                "Invalid root"
+            );
 
-    //         require(rewarder.isMarketWhitelisted(market), "Market is not whitelisted");
-    //         require(start >= block.timestamp, "Invalid start");
-    //         require(duration <= 365 days, "duration is probably too long");
+            uint256 nbOfRewards = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".length"))), (uint256));
 
-    //         if (epoch > 0) {
-    //             IRewarder.EpochParameters memory previousParams = rewarder.getEpochParameters(market, epoch - 1);
-    //             require(previousParams.start + previousParams.duration <= start, "Overlapping epochs");
-    //         }
+            require(m.rewards.length == nbOfRewards, "Invalid length");
 
-    //         User[] memory users = abi.decode(vm.parseJson(json, string(abi.encodePacked(mKey, ".rewards"))), (User[]));
+            for (c.j = 0; c.j < nbOfRewards; ++c.j) {
+                Reward storage r = m.rewards[c.j];
 
-    //         for (uint256 j; j < users.length; j++) {
-    //             User memory user = users[j];
+                string memory rKey = string(abi.encodePacked(mKey, ".rewards[", StringsUpgradeable.toString(c.j), "]"));
 
-    //             require(
-    //                 _set.contains(keccak256(abi.encodePacked(market, epoch, user.token, user.user))),
-    //                 "User rewards does not exists"
-    //             );
+                require(
+                    r.token == abi.decode(vm.parseJson(json, string(abi.encodePacked(rKey, ".address"))), (address)),
+                    "Invalid token"
+                );
+                require(
+                    r.totalRewards
+                        == abi.decode(vm.parseJson(json, string(abi.encodePacked(rKey, ".totalRewards"))), (uint256)),
+                    "Invalid total rewards"
+                );
 
-    //             require(m.duration == duration, "Invalid duration");
-    //             require(m.epoch == epoch, "Invalid epoch");
-    //             require(m.market == market, "Invalid market");
-    //             require(m.root == root, "Invalid root");
-    //             require(m.start == start, "Invalid start");
-    //             require(m.totalRewards == totalRewards, "Invalid total rewards");
+                uint256 nbOfUsers = abi.decode(vm.parseJson(json, string(abi.encodePacked(rKey, ".length"))), (uint256));
 
-    //             User storage u = m.users[j];
+                require(r.users.length == nbOfUsers, "Invalid length");
 
-    //             require(u.user == user.user, "Invalid user");
-    //             require(u.amount == user.amount, "Invalid amount");
-    //             require(u.token == user.token, "Invalid token");
+                uint256 sumRewards;
+                for (c.k = 0; c.k < nbOfUsers; ++c.k) {
+                    User storage u = r.users[c.k];
 
-    //             require(u.proof.length == user.proof.length, "Invalid proof length");
+                    string memory uKey =
+                        string(abi.encodePacked(rKey, ".users[", StringsUpgradeable.toString(c.k), "]"));
 
-    //             for (uint256 k; k < u.proof.length; k++) {
-    //                 require(u.proof[k] == user.proof[k], "Invalid proof");
-    //             }
+                    require(
+                        u.user == abi.decode(vm.parseJson(json, string(abi.encodePacked(uKey, ".address"))), (address)),
+                        "Invalid user"
+                    );
 
-    //             require(
-    //                 _verify(root, market, epoch, start, duration, user.token, user.user, user.amount, user.proof),
-    //                 "Invalid proof"
-    //             );
-    //         }
-    //     }
-    // }
+                    uint256 amount =
+                        abi.decode(vm.parseJson(json, string(abi.encodePacked(uKey, ".amount"))), (uint256));
+
+                    require(u.amount == amount, "Invalid amount");
+
+                    bytes32[] memory proof =
+                        abi.decode(vm.parseJson(json, string(abi.encodePacked(uKey, ".proof"))), (bytes32[]));
+
+                    for (c.l = 0; c.l < proof.length; ++c.l) {
+                        require(u.proof[c.l] == proof[c.l], "Invalid proof");
+                    }
+
+                    require(
+                        _verify(m.root, m.market, m.epoch, m.start, m.duration, r.token, u.user, u.amount, proof),
+                        "Invalid proof"
+                    );
+
+                    sumRewards += amount;
+                }
+
+                require(sumRewards == r.totalRewards, "Invalid total rewards");
+            }
+        }
+    }
 
     function _verify(
         bytes32 root,
@@ -341,14 +375,14 @@ contract RewarderScript is Script {
         return merkleProof.verify(root, leaf);
     }
 
-    function convertArrayOfMarketToString(Market[] storage markets) internal view returns (string memory) {
+    function _convertArrayOfMarketToString(Market[] storage markets) internal view returns (string memory) {
         uint256 length = markets.length;
 
         string memory str = '{"length":';
         str = string(abi.encodePacked(str, StringsUpgradeable.toString(length), ',"markets":['));
 
         for (uint256 i; i < length; i++) {
-            str = string(abi.encodePacked(str, convertMarketToString(markets[i])));
+            str = string(abi.encodePacked(str, _convertMarketToString(markets[i])));
             if (i < length - 1) {
                 str = string(abi.encodePacked(str, ","));
             }
@@ -357,7 +391,7 @@ contract RewarderScript is Script {
         return str;
     }
 
-    function convertMarketToString(Market storage market) internal view returns (string memory) {
+    function _convertMarketToString(Market storage market) internal view returns (string memory) {
         string memory str = "{";
         str = string(abi.encodePacked(str, '"address":"', StringsUpgradeable.toHexString(market.market)));
         str = string(abi.encodePacked(str, '","epoch":', StringsUpgradeable.toString(market.epoch)));
@@ -365,17 +399,17 @@ contract RewarderScript is Script {
         str = string(abi.encodePacked(str, ',"duration":', StringsUpgradeable.toString(market.duration)));
         str = string(abi.encodePacked(str, ',"root":"', StringsUpgradeable.toHexString(uint256(market.root), 32)));
         str = string(abi.encodePacked(str, '","length":', StringsUpgradeable.toString(market.rewards.length)));
-        str = string(abi.encodePacked(str, ',"rewards":', convertArrayOfRewarsToString(market.rewards)));
+        str = string(abi.encodePacked(str, ',"rewards":', _convertArrayOfRewarsToString(market.rewards)));
         str = string(abi.encodePacked(str, "}"));
         return str;
     }
 
-    function convertArrayOfRewarsToString(Reward[] storage rewards) internal view returns (string memory) {
+    function _convertArrayOfRewarsToString(Reward[] storage rewards) internal view returns (string memory) {
         uint256 length = rewards.length;
 
         string memory str = "[";
         for (uint256 i; i < length; i++) {
-            str = string(abi.encodePacked(str, convertRewardToString(rewards[i])));
+            str = string(abi.encodePacked(str, _convertRewardToString(rewards[i])));
             if (i < length - 1) {
                 str = string(abi.encodePacked(str, ","));
             }
@@ -384,22 +418,22 @@ contract RewarderScript is Script {
         return str;
     }
 
-    function convertRewardToString(Reward storage reward) internal view returns (string memory) {
+    function _convertRewardToString(Reward storage reward) internal view returns (string memory) {
         string memory str = "{";
         str = string(abi.encodePacked(str, '"address":"', StringsUpgradeable.toHexString(reward.token)));
         str = string(abi.encodePacked(str, '","totalRewards":', StringsUpgradeable.toString(reward.totalRewards)));
         str = string(abi.encodePacked(str, ',"length":', StringsUpgradeable.toString(reward.users.length)));
-        str = string(abi.encodePacked(str, ',"users":', convertArrayOfUserToString(reward.users)));
+        str = string(abi.encodePacked(str, ',"users":', _convertArrayOfUserToString(reward.users)));
         str = string(abi.encodePacked(str, "}"));
         return str;
     }
 
-    function convertArrayOfUserToString(User[] storage users) internal view returns (string memory) {
+    function _convertArrayOfUserToString(User[] storage users) internal view returns (string memory) {
         uint256 length = users.length;
 
         string memory str = "[";
         for (uint256 i; i < length; i++) {
-            str = string(abi.encodePacked(str, convertUserToString(users[i])));
+            str = string(abi.encodePacked(str, _convertUserToString(users[i])));
             if (i < length - 1) {
                 str = string(abi.encodePacked(str, ","));
             }
@@ -408,16 +442,16 @@ contract RewarderScript is Script {
         return str;
     }
 
-    function convertUserToString(User storage user) internal view returns (string memory) {
+    function _convertUserToString(User storage user) internal view returns (string memory) {
         string memory str = "{";
         str = string(abi.encodePacked(str, '"address":"', StringsUpgradeable.toHexString(user.user)));
         str = string(abi.encodePacked(str, '","amount":', StringsUpgradeable.toString(user.amount)));
-        str = string(abi.encodePacked(str, ',"proof":', convertArrayOfBytes32ToString(user.proof)));
+        str = string(abi.encodePacked(str, ',"proof":', _convertArrayOfBytes32ToString(user.proof)));
         str = string(abi.encodePacked(str, "}"));
         return str;
     }
 
-    function convertArrayOfBytes32ToString(bytes32[] storage proof) internal view returns (string memory) {
+    function _convertArrayOfBytes32ToString(bytes32[] storage proof) internal view returns (string memory) {
         string memory str = "[";
         for (uint256 i; i < proof.length; i++) {
             str = string(abi.encodePacked(str, '"', StringsUpgradeable.toHexString(uint256(proof[i]), 32), '"'));
