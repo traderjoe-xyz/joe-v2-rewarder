@@ -364,7 +364,7 @@ contract Rewarder is
     ) external override onlyOwner {
         if (!_whitelistedMarkets.contains(market)) revert Rewarder__MarketNotWhitelisted();
         if (root == bytes32(0)) revert Rewarder__InvalidRoot();
-        if (start == 0 || start < block.timestamp) revert Rewarder__InvalidStart();
+        if (start < block.timestamp) revert Rewarder__InvalidStart();
 
         {
             uint256 length = _epochs[market].length;
