@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.10;
+pragma solidity 0.8.10;
 
 import "openzeppelin-upgradeable/utils/cryptography/MerkleProofUpgradeable.sol";
 import "openzeppelin-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
@@ -447,7 +447,7 @@ contract Rewarder is
     function addMarketToWhitelist(address market) external override onlyOwner {
         if (!_whitelistedMarkets.add(market)) revert Rewarder__MarketAlreadyWhitelisted();
 
-        emit MarketAddedToWhitelisted(market);
+        emit MarketAddedToWhitelist(market);
     }
 
     /**
@@ -457,7 +457,7 @@ contract Rewarder is
     function removeMarketFromWhitelist(address market) external override onlyOwner {
         if (!_whitelistedMarkets.remove(market)) revert Rewarder__MarketNotWhitelisted();
 
-        emit MarketRemovedFromUnwhitelisted(market);
+        emit MarketRemovedFromWhitelist(market);
     }
 
     /**
