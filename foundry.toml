@@ -12,6 +12,12 @@ fs_permissions = [
 avalanche = "https://api.avax.network/ext/bc/C/rpc"
 fuji = "https://api.avax-test.network/ext/bc/C/rpc"
 
+[etherscan]
+arbitrum_one_goerli = { url = "https://api-goerli.arbiscan.io/api", key = "${ARBISCAN_KEY}", chain = "arbitrum-goerli" }
+arbitrum_one = { url = "https://api.arbiscan.io/api", key = "${ARBISCAN_KEY}", chain = "arbitrum" }
+avalanche = { key = "${SNOWTRACE_API_KEY}", chain = "avalanche" }
+fuji = { key = "${SNOWTRACE_API_KEY}", chain = "fuji" }
+
 [fmt]
 number_underscore = "thousands"
 
