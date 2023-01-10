@@ -70,9 +70,9 @@ interface IRewarder {
 
     event EpochCanceled(address indexed market, uint256 epoch);
 
-    event MarketAddedToWhitelisted(address indexed market);
+    event MarketAddedToWhitelist(address indexed market);
 
-    event MarketRemovedFromUnwhitelisted(address indexed market);
+    event MarketRemovedFromWhitelist(address indexed market);
 
     event ClawbackDelayUpdated(uint96 newClawbackDelay);
 
