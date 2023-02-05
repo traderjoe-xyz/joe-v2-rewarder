@@ -1138,6 +1138,30 @@ contract RewarderTest is Test {
         vm.stopPrank();
     }
 
+    function testCancelEpoch3Markets() public {
+        IERC20Upgradeable[] memory tokens = new IERC20Upgradeable[](3);
+        tokens[0] = TOKEN_A;
+        tokens[1] = TOKEN_B;
+        tokens[2] = NATIVE;
+
+        uint256[] memory amounts = new uint256[](3);
+        amounts[0] = 100;
+        amounts[1] = 100;
+        amounts[2] = 100;
+
+        TOKEN_A.mint(address(rewarder), 100);
+        TOKEN_B.mint(address(rewarder), 100);
+        deal(address(rewarder), 100);
+
+        vm.startPrank(OWNER);
+        rewarder.addMarketToWhitelist(MARKET_A);
+
+        rewarder.setNewEpoch(MARKET_A, 0, 10, 10, tokens, amounts, bytes32(uint256(1)));
+
+        rewarder.cancelEpoch(MARKET_A, 0);
+        vm.stopPrank();
+    }
+
     function testCancelEpochRevertForEpochDoesNotExist() public {
         vm.startPrank(OWNER);
         vm.expectRevert(IRewarder.Rewarder__EpochDoesNotExist.selector);
