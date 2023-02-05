@@ -422,18 +422,17 @@ contract Rewarder is
 
         EnumerableMapUpgradeable.AddressToUintMap storage map = _totalRewardsPerEpoch[market][epoch];
 
-        uint256 nbToken = map.length();
-        for (uint256 i; i < nbToken;) {
-            (address token, uint256 amount) = map.at(i);
+        for (uint256 nbToken = map.length(); nbToken > 0;) {
+            unchecked {
+                --nbToken;
+            }
+
+            (address token, uint256 amount) = map.at(nbToken);
             map.remove(token);
 
             if (amount > 0) {
                 _totalUnreleasedRewards[IERC20Upgradeable(token)] -= amount;
                 _transferNativeOrERC20(IERC20Upgradeable(token), msg.sender, amount);
-            }
-
-            unchecked {
-                ++i;
             }
         }
 
