@@ -11,13 +11,13 @@ import "../../../src/Rewarder.sol";
 contract RewarderUpgrader is Script {
     IVBS public constant vbs = IVBS(0xFFC08538077a0455E0F4077823b1A0E3e18Faf0b);
 
-    ProxyAdmin public constant admin = ProxyAdmin(0x46709dbc09656292B27ad91EE2c5d324270D3387);
+    ProxyAdmin public constant admin = ProxyAdmin(0x65F3c037Ee4C142f4B60434a5f166EAfA06D458E);
 
     TransparentUpgradeableProxy public constant proxy =
-        TransparentUpgradeableProxy(payable(0x1D336E165CbA662fa49B935fFdD7362C09Cc93ec));
+        TransparentUpgradeableProxy(payable(0x3e031f1486a27c997e85C5a2af2638EE3A4C28a1));
 
     function run() public returns (address) {
-        vm.createSelectFork(stdChains["fuji"].rpcUrl, 17_891_593);
+        vm.createSelectFork(stdChains["fuji"].rpcUrl);
 
         uint256 deployerPrivateKey = vm.envUint("DEPLOY_PRIVATE_KEY");
 
