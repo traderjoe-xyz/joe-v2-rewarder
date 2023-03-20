@@ -656,6 +656,7 @@ contract Rewarder is
             _released[id] = totalReleased;
             unreleased = amount - totalReleased;
 
+            _totalUnreleasedRewards[token] -= amountToRelease;
             _transferNativeOrERC20(token, recipient, amountToRelease);
         }
     }

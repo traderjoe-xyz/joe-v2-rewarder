@@ -340,6 +340,28 @@ contract RewarderTest is Test {
         assertEq(TOKEN_B.balanceOf(BOB), 200);
         assertEq(rewarder.getReleased(MARKET_A, epoch, IERC20Upgradeable(TOKEN_B), BOB), 200);
         assertEq(rewarder.getReleasableAmount(MARKET_A, epoch, tokens[1], BOB, amounts[1], proof1), 0);
+
+        epoch = 1;
+        start = 200;
+        duration = 100;
+
+        tokens[0] = IERC20Upgradeable(TOKEN_A);
+        tokens[1] = IERC20Upgradeable(TOKEN_B);
+
+        amounts[0] = 100;
+        amounts[1] = 200;
+
+        leaves[0] = getLeaf(MARKET_A, epoch, start, duration, tokens[0], ALICE, amounts[0]);
+        leaves[1] = getLeaf(MARKET_A, epoch, start, duration, tokens[1], BOB, amounts[1]);
+
+        root = merkle.getRoot(leaves);
+
+        vm.startPrank(OWNER);
+        TOKEN_A.mint(address(rewarder), 100);
+        TOKEN_B.mint(address(rewarder), 200);
+
+        rewarder.setNewEpoch(MARKET_A, epoch, start, duration, tokens, amounts, root);
+        vm.stopPrank();
     }
 
     function testGetReleasableAmountWithWrongProof() public {
