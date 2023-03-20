@@ -178,4 +178,6 @@ interface IRewarder {
     function setClawbackDelay(uint96 newClawbackDelay) external;
 
     function setClawbackRecipient(address newClawbackRecipient) external;
+
+    function forceSync(IERC20Upgradeable token) external;
 }

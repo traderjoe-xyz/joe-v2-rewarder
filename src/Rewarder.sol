@@ -478,6 +478,14 @@ contract Rewarder is
     }
 
     /**
+     * @notice Force update the total unreleased rewards for the given token.
+     * @param token The token to update.
+     */
+    function forceSync(IERC20Upgradeable token) external override onlyOwner {
+        _totalUnreleasedRewards[token] = _balanceOfNativeOrERC20(token);
+    }
+
+    /**
      * Internal Functions
      */
 
@@ -656,6 +664,7 @@ contract Rewarder is
             _released[id] = totalReleased;
             unreleased = amount - totalReleased;
 
+            _totalUnreleasedRewards[token] -= amountToRelease;
             _transferNativeOrERC20(token, recipient, amountToRelease);
         }
     }
