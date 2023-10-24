@@ -15,7 +15,7 @@ contract UpdateArbitrum is Test {
     ProxyAdmin public proxyAdmin = ProxyAdmin(0xa0BA87c58C7D09f859843256A9b87253F9a26C98);
 
     function setUp() public {
-        vm.createSelectFork(stdChains["arbitrum_one"].rpcUrl);
+        vm.createSelectFork("https://rpc.ankr.com/arbitrum", 71_910_974);
     }
 
     function testRewarder() public {

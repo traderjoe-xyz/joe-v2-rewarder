@@ -657,12 +657,18 @@ contract Rewarder is
 
         if (amountToRelease > 0) {
             EnumerableMapUpgradeable.AddressToUintMap storage map = _totalRewardsPerEpoch[market][epoch];
-            map.set(address(token), map.get(address(token)) - amountToRelease);
 
-            uint256 totalReleased = released + amountToRelease;
+            uint256 totalAmount = map.get(address(token));
+            amountToRelease = amountToRelease > totalAmount ? totalAmount : amountToRelease;
 
-            _released[id] = totalReleased;
-            unreleased = amount - totalReleased;
+            map.set(address(token), totalAmount - amountToRelease);
+
+            {
+                uint256 totalReleased = released + amountToRelease;
+
+                _released[id] = totalReleased;
+                unreleased = totalAmount == amountToRelease ? 0 : amount - totalReleased;
+            }
 
             _totalUnreleasedRewards[token] -= amountToRelease;
             _transferNativeOrERC20(token, recipient, amountToRelease);
