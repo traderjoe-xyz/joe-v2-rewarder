@@ -10,6 +10,15 @@ import "../src/Rewarder.sol";
 import "./mocks/MockERC20.sol";
 
 contract RewarderTest is Test {
+    event RewardClaimed(
+        address indexed user,
+        address indexed market,
+        IERC20Upgradeable indexed token,
+        uint256 epoch,
+        uint256 released,
+        uint256 unreleased
+    );
+
     Merkle public merkle;
 
     Rewarder public implementation;
@@ -1423,11 +1432,13 @@ contract RewarderTest is Test {
 
         vm.warp(start + duration);
 
-        vm.expectRevert();
+        vm.expectEmit(true, true, true, true);
+        emit RewardClaimed(ALICE, MARKET_A, IERC20Upgradeable(address(TOKEN_A)), epoch, 99, 0);
         vm.prank(ALICE);
         rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_A)), 100, proof0);
 
-        vm.expectRevert();
+        vm.expectEmit(true, true, true, true);
+        emit RewardClaimed(BOB, MARKET_A, IERC20Upgradeable(address(TOKEN_B)), epoch, 199, 0);
         vm.prank(BOB);
         rewarder.claim(MARKET_A, epoch, IERC20Upgradeable(address(TOKEN_B)), 200, proof1);
     }
